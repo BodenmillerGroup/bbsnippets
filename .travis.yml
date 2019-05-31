@@ -1,5 +1,4 @@
-# This will run on Travis' 'new' container-based infrastructure
-sudo: false
+dist: xenial   # required for Python >= 3.7
 
 language: python
 python:
@@ -7,7 +6,7 @@ python:
 install:
   - "pip install -r .travis/requirements.txt"
 
-# Blacklist
+# Safelist
 branches:
   only:
     - master
