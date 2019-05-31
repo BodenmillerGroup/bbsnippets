@@ -1,4 +1,0 @@
-Python
-======
-
-Python code snippets.

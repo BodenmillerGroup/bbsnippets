@@ -3,13 +3,14 @@ dist: xenial   # required for Python >= 3.7
 language: python
 python:
   - "3.7"
-install:
-  - "pip install -r .travis/requirements.txt"
 
-# Safelist
+# safelist
 branches:
   only:
     - master
+
+script:
+- .travis/prepare-docs.py
 
 deploy:
   provider: pages

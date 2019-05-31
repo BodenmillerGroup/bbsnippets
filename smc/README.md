@@ -1,4 +1,0 @@
-SMC
-===
-
-SMC related snippets.

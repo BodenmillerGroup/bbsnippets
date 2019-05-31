@@ -1,4 +1,0 @@
-Cytometry
-=========
-
-Cytometry related snippets.
