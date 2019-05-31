@@ -1,4 +1,0 @@
-IMC
-===
-
-IMC related snippets.
