@@ -1,6 +1,7 @@
 - [Home](/README.md#getting-started)
 - [IMC](snippets/imc/README.md)
   - [Slide Overview](snippets/imc/slide_overview/README.md)
+  - [BBwidgets and imctools](snippets/imc/bbwidgets_imctools_example/README.md)
 - [Image Analysis](snippets/image_analysis/README.md)
   - [OME-TIFF Java bridge](snippets/image_analysis/ometiff_javabridge/README.md)
 - [Miscellaneous](snippets/misc/README.md)
