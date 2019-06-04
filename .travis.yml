@@ -10,7 +10,7 @@ branches:
     - master
 
 script:
-- python3 .travis/prepare-docs.py
+- .travis/prepare-docs.py
 
 deploy:
   provider: pages
