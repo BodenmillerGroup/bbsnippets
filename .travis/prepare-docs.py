@@ -4,8 +4,6 @@ import os
 
 SNIPPETS_ROOT = 'snippets'
 
-os.chdir('..')
-
 lines = ['- [Home](/README.md#getting-started)\n']
 for root, dirs, files in os.walk(SNIPPETS_ROOT, topdown=True):
   for file in files:
