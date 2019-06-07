@@ -3,10 +3,10 @@ import javabridge
 import numpy as np
 
 # img has shape (channels, height, width)
-def write_ome_tiff(path, img, name, channel_names):
+def write_ome_tiff(path, img, name, channel_names, pixel_type=bioformats.omexml.PT_UINT16):
     omexml = bioformats.omexml.OMEXML()
     omexml.image(0).Name = name
-    omexml.image(0).Pixels.PixelType = bioformats.omexml.PT_UINT16
+    omexml.image(0).Pixels.PixelType = pixel_type
     omexml.image(0).Pixels.DimensionOrder = bioformats.omexml.DO_XYCZT
     omexml.image(0).Pixels.SizeX = img.shape[2]
     omexml.image(0).Pixels.SizeY = img.shape[1]
@@ -23,7 +23,7 @@ def write_ome_tiff(path, img, name, channel_names):
         env = javabridge.get_env()
         buffer = env.make_object_array(img.shape[0], env.find_class('[B'))
         for i, channel_img in enumerate(img):
-            channel_data = np.frombuffer(np.ascontiguousarray(channel_img, "<u2").data, np.uint8)
+            channel_data = np.frombuffer(np.ascontiguousarray(channel_img).data, np.uint8)
             env.set_object_array_element(buffer, i, env.make_byte_array(channel_data))
         javabridge.run_script(
             """
