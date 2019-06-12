@@ -3,7 +3,8 @@ import javabridge
 import numpy as np
 
 # img has shape (channels, height, width)
-def write_ome_tiff(path, img, name, channel_names, pixel_type=bioformats.omexml.PT_UINT16):
+def write_ome_tiff(path, img, name, fluor_names, channel_names=None, pixel_type=bioformats.omexml.PT_UINT16):
+    FIELD_FLUOR = 'Fluor'
     omexml = bioformats.omexml.OMEXML()
     omexml.image(0).Name = name
     omexml.image(0).Pixels.PixelType = pixel_type
@@ -13,11 +14,15 @@ def write_ome_tiff(path, img, name, channel_names, pixel_type=bioformats.omexml.
     omexml.image(0).Pixels.SizeC = img.shape[0]
     omexml.image(0).Pixels.SizeZ = 1
     omexml.image(0).Pixels.SizeT = 1
-    assert len(channel_names) == img.shape[0]
-    omexml.image(0).Pixels.channel_count = len(channel_names)
-    for i, channel_name in enumerate(channel_names):
+    assert len(fluor_names) == img.shape[0]
+    if channel_names is None:
+        channel_names = fluor_names
+    assert (len(fluor_names) == len(channel_names))
+    omexml.image(0).Pixels.channel_count = len(fluor_names)
+    for i, (fluor_name, channel_name) in enumerate(zip(fluor_names, channel_names)):
         omexml.image(0).Pixels.Channel(i).Name = channel_name
         omexml.image(0).Pixels.Channel(i).SamplesPerPixel = 1
+        omexml.image(0).Pixels.Channel(i).node.set(FIELD_FLUOR, fluor_name)
     javabridge.start_vm(class_path=bioformats.JARS)
     try:
         env = javabridge.get_env()
