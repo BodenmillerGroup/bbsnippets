@@ -1,0 +1,166 @@
+---
+title: "CCLE RNAseq gene expression data for 1019 cell lines (RPKM)"
+output: html_document
+author: Tobias Hoch
+date: June 2019
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### indicate folder directions
+Please adapt:
+
+1. out_dir: set the path to your output directory of choice
+
+2. targets: list your genes of interest in a .csv file with three colums: "protein", "gene" and "ensembl_gene". 
+
+3. bb_cells: should be updated from time to time
+
+```{r}
+
+# indicate the output folder
+out_dir = getwd()
+
+# Indicate the location of the input file (data set is from 2018 and contains RPMK counts for more than 1000 celllines)
+meta = '/mnt/imls-bod/Thoch/Data/Anitbodies/mRNA_celllines/CCLE_sample_info_file_2012-10-18.txt'
+data = '/mnt/imls-bod/Thoch/Data/Anitbodies/mRNA_celllines/CCLE_RNAseq_genes_rpkm_20180929.gct'
+
+# .csv file with your proteins of interest (change this .csv but keep column headers)
+targets = '/mnt/imls-bod/Thoch/Data/Anitbodies/mRNA_celllines/20190321_mRNAexpression_proteins.csv'
+
+# file which contains all cell lines that we currently have in our lab (should be updated from time to time, current version: April 2019)
+bb_cells = "/mnt/imls-bod/Thoch/Data/Anitbodies/mRNA_celllines/celllines_BBLab_April_2019.csv"
+```
+
+
+### Load libraries
+```{r, message=F, warning=F}
+library(Biobase)
+library(CePa)
+library(readr)
+library(data.table)
+library(gplots)
+library(reshape2)
+library(tools)
+library(dplyr)
+library(grid)
+library(lattice)
+```
+
+### Load data
+```{r, message=F}
+# expression values are RPKM (Reads Per Kilobase Million), normalized for sequencing depth and gene length
+expression_data = as.data.frame(read.gct(data))
+meta_data = as.data.table(read_delim(meta,"\t", escape_double = FALSE, trim_ws = TRUE))
+target_proteins = fread(targets, stringsAsFactors = F)
+
+# remove proteins that are listed twice
+target_proteins = unique(target_proteins)
+
+# load cell lines that are available in the BBLab (should be updated from time to time, current: April 2019)
+celllines = read.csv(bb_cells)
+target_celllines = celllines %>% pull(inLab_cells)
+```
+
+### Read target proteins and target celllines
+```{r}
+# add column with ensembl gene ID, without the version number
+expression_data$'ensembl_gene' = gsub("\\.[0-9]+", x = as.character(rownames(expression_data)), replacement = "")
+
+#partial match between rownames of expression_data (ensembl version ID) and target_proteins (ensembl ID, without version number!!)
+match = expression_data[match(target_proteins$ensembl_gene, expression_data$ensembl_gene), ]
+
+# santiy check: check out your NAs in the match, maybe you provided the wrong ensembl ID...
+target_not_available = target_proteins[match$ensembl_gene %in% target_proteins$ensembl_gene == FALSE,]
+
+# remove NA's (only if target protein is really not available which is unlikely)
+### match = match[complete.cases(match),] ###
+
+# add gene name from target_proteins (as rowname) ---> got stock here, something doesnt work properly
+match = as.data.frame(merge(target_proteins[, c("gene", "ensembl_gene")], match, by="ensembl_gene"))
+rownames(match) = match$gene
+rownames(match)
+match[,c("ensembl_gene", "gene")] = NULL
+
+# create comparable cellline names
+meta_data[, inLab := F]
+meta_data$'Cell line primary name'[meta_data$'Cell line primary name' %in% target_celllines]
+meta_data[, matchName := tolower(get('Cell line primary name'))]
+meta_data[, matchName := gsub('-|\ ','',matchName)]
+target_celllines.matchName = gsub('-|\ ','',tolower(target_celllines))
+meta_data[matchName %in% target_celllines.matchName, inLab := TRUE]
+
+# keep inLab cells only
+targetCCLE = subset(meta_data,inLab == TRUE)
+targetCCLE = targetCCLE[,get('CCLE name')]
+
+# -> rename cell lines which are wrongly annotated directly in the .csv (bb_cells) file!
+match_celllines = match[, colnames(match) %in% targetCCLE]
+```
+
+### Visualize expression profile of the cells we have
+```{r}
+pdf(paste(out_dir, 'expression_of_inLab_celllines.pdf', sep="/"), height=10, width=20)
+levelplot(t(as.matrix(match_celllines)), scales=list(x=list(rot=90)), grid,
+               panel=function(...) {
+                       arg <- list(...)
+                       panel.levelplot(...)
+                       panel.text(arg$x, arg$y, round(arg$z,1))})
+trellis.focus("legend", side="right", clipp.off=TRUE, highlight=FALSE)
+grid.text('RPKM', 0.5, 1.07, hjust=0.5, vjust=1)
+trellis.unfocus()
+dev.off()
+
+# open PDF
+#openPDF(file = paste(out_dir, "expression_of_inLab_celllines.pdf", sep = "/"), bg = T)
+```
+![](./expression_of_inLab_celllines.pdf){width=100%}
+
+
+### Visualize cell lines (inLab == T is not a requirement here) with high expression of target proteins
+```{r}
+# cell lines (inLab == T is not a requirement here) with high expression of at least one target (>200 RPMK, can be changed by defining the selection parameter "X" in "any(match>X)")
+high_expressing_cells <- match[,apply(match, 2, function(match) any(match>100)), drop = F]
+
+pdf(paste(out_dir, 'cell_lines_with_high_expression.pdf', sep="/"), height=10, width=20)
+levelplot(t(as.matrix(high_expressing_cells)), scales=list(x=list(rot=90)), grid)
+trellis.focus("legend", side="right", clipp.off=TRUE, highlight=FALSE)
+grid.text('RPKM', 0.5, 1.07, hjust=0.5, vjust=1)
+trellis.unfocus()
+dev.off()
+
+# open PDF
+#openPDF(file = paste(out_dir, "cell_lines_with_high_expression.pdf", sep="/"), bg = T)
+```
+
+![](./cell_lines_with_high_expression.pdf){width=100%}
+
+### Visualize cell lines (inLab == T is not a requirement here) with max expression of target proteins
+```{r}        
+# cell lines (inLab == T is not a requirement here) with max expression for each target protein
+max_expression = match[,apply(match, 1, which.max), drop = F]
+
+pdf(paste(out_dir, 'cell_lines_with_max_expression.pdf', sep="/"), height=10, width=20)
+levelplot(t(as.matrix(max_expression)), scales=list(x=list(rot=90)), grid, 
+               panel=function(...) {
+                       arg <- list(...)
+                       panel.levelplot(...)
+                       panel.text(arg$x, arg$y, round(arg$z,1))})
+trellis.focus("legend", side="right", clipp.off=TRUE, highlight=FALSE)
+grid.text('RPKM', 0.5, 1.07, hjust=0.5, vjust=1)
+trellis.unfocus()
+dev.off()
+
+# open PDF
+#openPDF(file = paste(out_dir, "cell_lines_with_max_expression.pdf", sep = "/"), bg = T)
+```
+
+![](./cell_lines_with_max_expression.pdf){width=100%}
+
+## session info
+```{r}
+sessionInfo()
+```
+
