@@ -1,1 +1,0 @@
-Kaplan-Meier survival curves for different patient groups (here grade)
