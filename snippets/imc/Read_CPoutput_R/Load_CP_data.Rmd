@@ -1,0 +1,94 @@
+---
+title: "Load CP output"
+author: "Jana Fischer, adapted from Vito Zanotelli"
+date: "7/19/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load CP single-cell data
+```{r}
+library(data.table)
+
+#Load single-cell data from CP
+cells = fread('/home/ubuntu/tmp/server_homes/janaf/Data/2019/ValidationCohort/cpout/RescaledCellsExp.csv')
+
+#Melt data table
+cp_measurevars = c('MeanIntensity')
+cp_idvars = c('ImageNumber', 'ObjectNumber','AreaShape_Area','AreaShape_Eccentricity','AreaShape_Extent', 'AreaShape_MajorAxisLength', 'AreaShape_MinorAxisLength',"Neighbors_NumberOfNeighbors_1","Neighbors_PercentTouching_1")
+measurevar = colnames(cells)[grep(paste(paste0(cp_measurevars,'_'),collapse='|'), colnames(cells), ignore.case=TRUE)]
+cells_long = melt.data.table(cells, id.vars =cp_idvars , variable.factor = F, measure.vars = measurevar)
+
+#Extract info from variable column
+cells_long[,':='(
+  measuretype=bbRtools::getInfoFromFileList(.BY,sep = '_', strPos = 1),
+  measure=bbRtools::getInfoFromFileList(.BY,sep = '_', strPos = 2),
+  stack=bbRtools::getInfoFromFileList(.BY,sep = '_', strPos = 3),
+  channel=as.numeric(bbRtools::getInfoFromFileList(.BY,sep = '_', strPos = 4, censorStr = 'c'))
+  ), by=variable]
+
+```
+
+#Load panel and clean
+```{r}
+panel = fread('/home/ubuntu/tmp/server_homes/janaf/Data/2019/ValidationCohort/20190129_pannel_ZTMA21_Revision.csv',header = T)
+
+#Only keep relevant channels (this may be panel specific)
+panel = panel[channelname == 1,]
+names(panel)[names(panel) == 'full_channel'] = 'channel'
+
+```
+
+#Load CP image metadata
+```{r}
+image_meta = fread('/home/ubuntu/tmp/server_homes/janaf/Data/2019/ValidationCohort/cpout/Image.csv',header = T,stringsAsFactors = F)
+cols = c('Metadata_UBTMALocation','FileName_FullStack','Width_FullStack','Height_FullStack','ImageNumber')
+image_meta_short = subset(image_meta, ,cols)
+image_meta_short[,core := bbRtools::getInfoFromFileList(FileName_FullStack,sep = '_', strPos = 1:11)]
+
+#Calculate image area
+image_meta_short[,area := Width_FullStack * Height_FullStack]
+
+image_meta = NULL
+
+```
+
+#Single-cell data
+```{r}
+#Merge single-cell data with image metadata to have core names in single-cell data
+idcols = colnames(cells_long)[!colnames(cells_long) %in% c('measure', 'value', 'variable')]
+dat = dcast.data.table(cells_long, formula = paste0(paste(idcols, collapse = '+'), '~', 'measure'), value.var = 'value')
+dat = merge(dat, image_meta_short[,list(ImageNumber, core, Metadata_UBTMALocation)], by = 'ImageNumber')
+
+#Create unique single-cell id
+dat[, id := paste(.BY,collapse =  "_"), by=.(core,ObjectNumber)]
+
+#Merge single-cell data with panel to get metal tags and channel names for single-cell data
+dat = merge(dat, panel[,list(channel, `Metal Tag`, Target)], by='channel')
+names(dat)[names(dat) == 'Metal Tag'] = 'Metal_Tag'
+dat$channel = NULL
+
+#Convert table back to wide format if necessary
+dat = dcast.data.table(dat,'core + id + ObjectNumber + AreaShape_Area + AreaShape_Eccentricity + AreaShape_Extent + Neighbors_NumberOfNeighbors_1 + Neighbors_PercentTouching_1 ~ Target',value.var = 'MeanIntensity',fun.aggregate = mean)
+
+cells = NULL
+cells_long = NULL
+
+```
+
+#Load and prepare patient metadata
+```{r}
+validation_metadata = fread('/home/ubuntu/tmp/server_homes/janaf/Data/2019/ValidationCohort/Master_ZTMAbreastcancer_Charlotte2.csv',header = T)
+
+#Merge image metadata to patient metadata to get core names
+names(validation_metadata)[names(validation_metadata) == 'SpotNr'] = 'Metadata_UBTMALocation'
+validation_metadata = merge(validation_metadata,image_meta_short,by = 'Metadata_UBTMALocation')
+
+```
+
+```{r}
+sessionInfo()
+```
