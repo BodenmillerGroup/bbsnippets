@@ -1,0 +1,64 @@
+---
+title: "Coxph survival model"
+output: html_document
+author: "Jana Fischer"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Read in data
+```{r}
+library(data.table)
+surv_dat = fread('D:/Jana/PhD/BBsnippets/surv_dat.csv',header = T)
+
+```
+
+# Coxph survival model for grade
+```{r}
+library(stringr)
+library(survival)
+library(ggplot2)
+
+#Censoring for overall survival
+surv_dat$censoringOS[str_detect(surv_dat$Patientstatus,'death by primary disease')] = 1
+surv_dat$censoringOS[is.na(surv_dat$censoringOS)] = 0
+
+#Censoring for disease free survival
+surv_dat$censoringDFS[str_detect(surv_dat$Patientstatus,'alive w metastases')] = 1
+surv_dat$censoringDFS[surv_dat$OSmonth > surv_dat$DFSmonth] = 1 
+surv_dat$censoringDFS[is.na(surv_dat$censoringDFS)] = 0
+
+#Coxph only grade
+surv_dat$grade = factor(surv_dat$grade,levels = 1:3) #pick reference level (first level)
+
+res1 = coxph(Surv(surv_dat$OSmonth, surv_dat$censoringOS) ~ grade , data =  surv_dat)
+summary(res1)
+
+#Visualize hazard ratios
+CI = confint(res1)
+df <- data.frame(x = names(res1$coefficients),
+                 HR = exp(res1$coefficients),
+                 L = exp(CI[,1]),
+                 U = exp(CI[,2]))
+df = data.table(df)
+df = df[order(HR),]
+df$x = factor(df$x, levels = df$x)
+df$sign[df$L < 1 & df$U < 1] = 1
+df$sign[df$L > 1 & df$U > 1] = 1
+df$sign[is.na(df$sign)] = 0
+df$sign = factor(df$sign)
+
+ggplot(df, aes(x = x, y = HR, color = sign)) +
+geom_point(size = 4) +
+geom_errorbar(aes(ymax = U, ymin = L))+
+scale_color_manual(values = c('light blue','red'))+
+coord_flip()+ylim(0,5)+
+geom_hline(yintercept = 1,color = 'blue')+
+scale_y_continuous(trans='log')
+```
+
+```{r}
+sessionInfo()
+```
