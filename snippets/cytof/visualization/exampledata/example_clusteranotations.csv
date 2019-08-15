@@ -1,0 +1,10 @@
+cluster,celltype,compartment
+1,cd12321+,interesting
+2,cd12321+,interesting
+3,neutrophiles,interesting
+4,neutrophiles,interesting
+5,tcells,uninteresting
+6,tcells,uninteresting
+7,unknown,uninteresting
+8,macrophages,uninteresting
+9,unknown,uninteresting

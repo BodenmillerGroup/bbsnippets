@@ -1,0 +1,664 @@
+---
+title: "Example Workflow TSNE, Phenograph, Heatmap"
+author: "Vito Zanotelli, vito.zanotelli@gmail.com"
+date: "01/12/2016"
+output:
+  html_document
+---
+
+# Aim
+This script describes an example analysis for cyTOF data in R. 
+
+The base of this script was developed beginning of 2016 and only slighlty changed since. Thus it is likely that there are better ways to dot his nowadays!
+Alternative resources for cyTOF analysis are:
+
+  - https://f1000research.com/articles/6-748/v3
+  - http://cytof.biosurf.org/#!/cytof
+  - https://www.jimmunol.org/content/200/1/3
+  - https://github.com/lmweber/FlowSOM-Rtsne-example
+
+## Load dependencies
+
+```{r Install helper library}
+if(!require('bbRtools')){
+  devtools::install_git('https://github.com/BodenmillerGroup/bbRtools')
+}
+```
+
+If anything is not installed, install it via `install.packages`.
+For Bioconductor packages, follow the bioconductor instructions.
+```{r Libraries, include=FALSE}
+library(data.table)
+library(Rtsne)
+library(RColorBrewer)
+library(dplyr)
+library(dtplyr)
+library(gplots)
+library(cba)
+library(bbRtools)
+library(gplots)
+library(ggplot2)
+```
+
+
+
+## Settings
+Set your project specific folders and settings
+```{r Settings}
+# input files: paths to your input and output folder
+
+# a folder containing FCS files to be analysised
+fcs_folder = './exampledata/'
+out_folder = '/home/vitoz/Data/rseminaroutput/'
+
+# the random seed
+rand_seed = 1234
+# Should the script use only the cells subsampled at the tsne step?
+subsampled_cells_only = F
+
+## load tsne: should the script try to load an existing tsne?
+load_tsne = F
+load_phenograph = F
+load_flowsom = F
+
+# filename of the tsne saved by the script
+# choose the filename of the tsne such that it reflects the tsne setting
+fn_tsne = file.path(out_folder, '20170222_tsne_out.rdata')
+fn_phenograph = file.path(out_folder, '20170222_pheno_out.rdata')
+fn_flowsom = file.path(out_folder, '20170222_flowsom_out.rdata')
+
+# For plotting only: removes outliers with values higher than xx% of all cells
+censor_val = 0.999
+
+# point size for plots
+size = 0.1
+
+# define excluded channels
+crap_channels = c("Time" ,"Event_length" ,"X89Y_BC1" , "X96Ru_Vol1" , "X98Ru_Vol2","X99Ru_Vol3" , "X100Ru_Vol4" , "X101Ru_Vol5" , "X102Ru_Vol6" , "X103Rh_BC2" , "X104Ru_Vol7" , "X105Pd_BC3" , "X106Pd_BC4" , "X108Pd_BC5" , "X110Pd_BC6" , "X113In_BC7" , "X115In_BC8" , "X120Sn" , "X131Xe" , "X138Ba" , "X140Ce_Beads" , "X150Nd_CD68" , "X151Eu" ,  "X156Gd"  ,"X157Gd" , "X173Yb_CD3" , "X176Yb_CD45" , "X190BCKG" , "X191Ir_DNA1" , "X193Ir_DNA2" , "X195Pt" , "X196Pt" , "X208Pb" , "X209Bi_BC9" ,"MCB102" ,  "MCB104"   ,"MCB105"   ,"MCB106",   "MCB108" ,  "MCB110"  , "MCB113" ,  "MCB115"  ,"DNA191" ,  "DNA193"  , "Live194" ,
+                  "Live195" , "beadDist" ,"barcode" ,"Beads140" 
+)
+
+```
+
+## Start the script
+### Load the data
+```{r Load the data}
+# load data
+
+fcs_files = list.files(fcs_folder,pattern = '*.fcs')
+dat = bbRtools::loadConvertMultiFCS(fileDir = fcs_folder)
+# give each cell an own ID
+dat[, id := paste(1:.N, .BY), by=condition]
+
+setkey(dat, id)
+# 'melt' data: make a column 'channel' with all the channels and a column 'counts' with all the counts
+dat = melt.data.table(dat, id.vars=c('condition','id'), variable.name='channel', value.name = 'counts' , variable.factor = FALSE)
+
+
+```
+
+### Create a metadata table
+Here we simply extract metadata from the filename - however it is entirely possible to create such a table in excel, save it as a csv and load it here.
+
+Using 'merge' the metadata can allways be added whenever needed! This is extremely helpfull, e.g. when looking at clinical data.
+
+```{r}
+
+dat_meta = data.table(condition=dat[, unique(condition)])
+dat_meta[, ':='(
+  mdm = bbRtools::getInfoFromFileList(condition,strPos = 1),
+  plate = bbRtools::getInfoFromFileList(condition,strPos = 2),
+  well = bbRtools::getInfoFromFileList(condition,strPos = 3),
+  stimulation = bbRtools::getInfoFromFileList(condition,strPos = c(4,5))
+)]
+```
+
+
+
+### Clean and transform the data
+```{r Clean and transform data}
+
+# remove the NA counts
+
+dat = subset(dat, !is.na(counts))
+
+
+### calculate transformed counts ####
+dat[ , counts_transf := asinh(counts/5)]
+dat[, counts_scaled := counts/quantile(counts, 0.99), by=.(channel)]
+dat[counts_scaled > 1, counts_scaled := 1]
+```
+
+
+
+
+
+### Check if there are only 'good' channels selected
+Otherwise add the channel to the 'crap' channels list
+```{r}
+# make a list of good channels
+good_channels = unique(dat$channel)[!unique(dat$channel) %in% crap_channels]
+print(good_channels)
+```
+
+Tsne has a problem with duplicated cells, so remove them
+```{r Remove duplicated cells}
+# remove duplicate in live sample before running t-SNE
+dat[,sum_all := sum(counts[channel %in% good_channels]), by= id]
+
+# remove all 0 cells
+dat = subset(dat, sum_all != 0)
+# equal to: dat = dat[sum_all !=0,]
+```
+
+
+
+### Run the tsne analysis
+If save tsne is activated,
+```{r Prepare and run tsne}
+###### Run Tsne #####
+# make a list
+setkey(dat, id)
+# number of cells per condition
+print(dat[ , .(nCells = length(unique(id))), by=condition])
+print(dat[ , .(nCells = length(unique(id)))])
+
+set.seed(rand_seed)
+
+# choose the tsne channels
+
+tsne_channels = good_channels
+
+if (load_tsne & file.exists(fn_tsne)){
+  load(fn_tsne)
+} else {
+  tsne = bbRtools::calcTSNE(dat, tsne_channels, value_var = 'counts_transf',
+                            id_var = 'id', group_var='condition', scale = F, subsample_groups=10000, subsample_mode='unequal', multicore=20)
+  
+  save(tsne, file=fn_tsne)
+  
+}
+```
+
+If selected remove all cells not present in the tsne
+```{r Keep only TSNE cells}
+if (subsampled_cells_only){
+  ########## subset the data to only include the subsampled cells
+  setkey(dat, id)
+  dat = dat[tsne$Y$id ,]
+}
+```
+
+This defines a colormap with lots and lots of colors
+```{r Generate a color pallette for plotting}
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+
+```
+
+Rseminar: example of ggplot2
+```{r}
+marker = good_channels[1]
+subset(dat, channel == marker)[tsne$Y] 
+
+p = ggplot(subset(dat, channel == marker)[tsne$Y] , aes(x=bh_V1, y=bh_V2, color=counts_transf))+
+  geom_density2d()+
+  geom_point(alpha=0.5, size=1, aes(shape=condition))+
+  scale_color_gradientn(colours=rev(brewer.pal(11, 'Spectral')), name='Counts')+
+  ggtitle(marker)
+
+p
+
+```
+
+Look at an example channel mapped on the tsne
+```{r Look at an example channel mapped on the tsne}
+#plot the t-SNE Map by marker
+print(good_channels)
+# you can replace good_channels[1] with any marker name
+marker = good_channels[1]
+p =subset(dat, channel == marker)[tsne$Y] %>%
+  ggplot(aes(x=bh_V1, y=bh_V2, color=censor_dat(counts,censor_val)))+
+  geom_point(alpha=0.5, size=1)+
+  scale_color_gradientn(colours=rev(brewer.pal(11, 'Spectral')), name='Counts')+
+  ggtitle(marker)
+
+p
+
+```
+
+Rseminar: example of plutting multiple markers
+```{r}
+
+plot_markers = c("CD38" ,   "CD68"  ,  "CD36"  ,  "CD71" )
+
+for (marker in plot_markers){
+  p =subset(dat, channel == marker)[tsne$Y] %>%
+    ggplot(aes(x=bh_V1, y=bh_V2, color=censor_dat(counts,censor_val)))+
+    geom_point(alpha=0.5, size=1)+
+    scale_color_gradientn(colours=rev(brewer.pal(11, 'Spectral')), name='Counts')+
+    ggtitle(marker)
+  
+  print(p)
+}
+
+```
+Rseminar: example of plutting multiple markers with faceting
+```{r}
+
+plot_markers = c("CD38" ,   "CD68"  ,  "CD36"  ,  "CD71" )
+
+
+p =subset(dat, channel %in% plot_markers)[tsne$Y] %>%
+  ggplot(aes(x=bh_V1, y=bh_V2, color=censor_dat(counts,censor_val)))+
+  facet_wrap(~channel)+
+  geom_point(alpha=0.5, size=1)+
+  scale_color_gradientn(colours=rev(brewer.pal(11, 'Spectral')), name='Counts')+
+  ggtitle('Multiple markers')
+
+print(p)
+
+
+```
+
+
+Make an overview plot of all the channels on the tsne
+```{r plot a t-SNE Map for all the markers}
+#plot a t-SNE Map for all the markers
+dat[, c_counts := bbRtools::censor_dat(counts_transf,censor_val), by=channel]
+dat[, c_counts_scaled := c_counts, by=channel]
+dat[, c_counts_scaled := (c_counts_scaled/max(c_counts_scaled)), by=channel]
+dat[c_counts_scaled < 0, c_counts_scaled := 0, by=channel]
+
+p = subset(dat, channel %in% good_channels)[tsne$Y] %>%
+  ggplot(aes(x=bh_V1, y=bh_V2, color=c_counts_scaled))+
+  facet_wrap(~channel, scales = "free", ncol = 10)+
+  geom_point(alpha=0.5, size=0.5)+
+  scale_color_gradientn(colours=rev(brewer.pal(11, 'Spectral')), name='Counts')+
+  ggtitle('')+
+  theme(strip.background = element_blank(),
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        panel.background=element_blank(),
+        panel.border=element_blank(),
+        panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        plot.background=element_blank()) 
+
+p
+
+```
+
+
+## Phenograph analysis
+
+```{r Run phenograph}
+if (load_phenograph & file.exists(fn_phenograph)){
+  load(fn_phenograph)
+} else {
+  # with joining with the tsne data, only the cells used for tsne are used
+  cluster_pheno = bbRtools::do_phenograph(dat, good_channels, valuevar='counts_transf', idvar = 'id', k = 10, seed = rand_seed)
+  
+  save(cluster_pheno, file=fn_phenograph)
+  
+}
+```
+```{r Run flowsom}
+# with joining with the tsne data, only the cells used for tsne are used
+
+if (load_flowsom & file.exists(fn_flowsom)){
+  load(fn_flowsom)
+} else {
+  # with joining with the tsne data, only the cells used for tsne are used
+  cluster_flowsom = bbRtools::do_flowsom(dat, good_channels, valuevar='counts_transf', idvar = 'id', k = 10, seed = rand_seed)
+  
+  save(cluster_flowsom, file=fn_flowsom)
+  
+}
+```
+
+
+Map phenograph on the tsne
+
+```{r Plot the phenograph clusters on the tsne data}
+p = subset(dat, !duplicated(id))[tsne$Y][cluster_pheno] %>%
+  ggplot(aes(x=bh_V1, y=bh_V2))+
+  geom_point(size=0.3, alpha=1, aes(color=cluster, shape=condition))+
+  #scale_colour_brewer(palette="Paired")+
+  scale_color_manual(values = col_vector[10:70])+
+  ggtitle('Conditions')+
+  #stat_density2d(alpha=0.5, group=1, color='black')+
+  guides(color=guide_legend(override.aes=list(size=5)))+
+  theme(strip.background = element_blank(),
+        panel.background=element_rect(fill='white', colour = 'black'),
+        panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        plot.background=element_blank(),
+        legend.key = element_blank())
+p
+```
+# Plot a heatmap of the phenograph clusters
+
+Convert the data into a matrix to do a heatmap
+```{r}
+summary_dat = dat[cluster_pheno][ channel %in% good_channels ,list(
+  median_val = median(counts),
+  mean_val= mean(counts),
+  cell_cluster=.N
+), by=.(channel,cluster)]
+
+hm_dat = dcast.data.table(data =summary_dat, formula = 'cluster ~ channel',
+                          value.var = 'median_val')
+
+# save column
+trownames = hm_dat$cluster
+
+# convert to a matrix
+hm_dat = as.matrix(hm_dat[,-1,with=F])
+row.names(hm_dat) = trownames
+
+```
+
+Plot the heatmap with z-scoring per marker
+```{r}
+cols = rev(brewer.pal(11,'Spectral'))
+cmap = colorRampPalette(cols)
+
+
+tdist = as.dist(1-cor(t(hm_dat), method="spearman"))
+#tdist = dist((hm_dat), method="euclidean")
+hr <- hclust(tdist, method="ward.D")
+co_r <- order.optimal(tdist, hr$merge)
+hr$merge = co_r$merge
+hr$order = co_r$order
+
+order_heatmap_zscored = row.names(hm_dat)[hr$order]
+
+tdist = as.dist(1-cor((hm_dat), method="spearman"))
+#tdist = dist(t(hm_dat), method="euclidean")
+hc <- hclust(tdist, method="ward.D")
+co_c <- order.optimal(tdist, hc$merge)
+hc$merge = co_c$merge
+hc$order = co_c$order
+
+#z-score
+p_dat = scale(hm_dat)
+
+# censor z-score at 2
+p_dat[p_dat > 2] =2
+p_dat[p_dat < -2] =-2
+
+
+heatmap.2(p_dat,
+          scale ='none',
+          trace = "none",
+          col=cmap(75),
+          Rowv=as.dendrogram(hr),
+          Colv=as.dendrogram(hc),
+          density.info ='none',
+          #Colv =NA,
+          #keyorient=2,                                                  
+          #sepwidth = c(0,0),
+          cexRow=0.6,
+          cexCol=0.6,
+          margins=c(4,4),
+          xlab = 'Conditions',
+          ylab ='Cluster',
+          main = 'Cluster markers, z-scored'
+)
+
+
+```
+
+Heatmap with 0-1 scaling on the transformed data
+```{r}
+p_dat = asinh(hm_dat/5)
+p_dat = t(t(p_dat) / (apply(p_dat, 2, function(x) quantile(x, 0.99))))
+tdist = as.dist(1-cor(t(p_dat), method="spearman"))
+
+hr <- hclust(tdist, method="ward.D")
+co_r <- order.optimal(tdist, hr$merge)
+hr$merge = co_r$merge
+hr$order = co_r$order
+
+order_heatmap_01 = row.names(hm_dat)[hr$order]
+
+tdist = as.dist(1-cor((hm_dat), method="spearman"))
+hc <- hclust(tdist, method="ward.D")
+co_c <- order.optimal(tdist, hc$merge)
+hc$merge = co_c$merge
+hc$order = co_c$order
+
+heatmap.2(p_dat,
+          scale ='none',
+          trace = "none",
+          col=cmap(75),
+          Rowv=as.dendrogram(hr),
+          #RowSideColors=sel_col_vector[group_levels],
+          #dendrogram='column',
+          Colv=as.dendrogram(hc),
+          density.info ='none',
+          #Colv =NA,
+          #keyorient=2,                                                  
+          xlab = 'Conditions',
+          ylab ='Cluster',
+          main = 'Cluster markers, 0-1 scaled',
+          #sepwidth = c(0,0),
+          cexRow=0.6,
+          cexCol=0.6,
+          margins=c(4,4)
+          
+          #comments = data.frame(names = row.names(tab_Prot))
+)
+```
+
+### Plot a heatmap with cluster frequencies on the side
+
+Prepare the data
+```{r}
+##############################distribution of cluster per condtition in a table
+
+
+dat_cluster_condition = dat[cluster_pheno][, .(cluster_mean = mean(counts_transf), ncells=.N),by=.(condition, channel, cluster)]
+dat_cluster_condition[, id2:=paste(cluster, condition)]
+setkey(dat_cluster_condition, 'id2')
+
+cluster_dat = subset(dat_cluster_condition, !duplicated(id2))
+
+cluster_dat[, frac_cluster := ncells/sum(ncells), by=condition]
+cluster_dat[, frac_cells := ncells/sum(ncells), by=cluster]
+
+# this will order the clusters the same as in the heatmap above
+cluster_dat[, cluster_s := factor(as.character(cluster),levels = order_heatmap_zscored)]
+
+```
+
+Plot the fraction of cells per cluster as a heatmap
+```{r}
+p <- ggplot(cluster_dat, aes(x=cluster_s, y=condition)) + 
+  geom_tile(aes(fill = frac_cells), colour = "white") + 
+  scale_fill_gradient(low = "white", high = "steelblue")+
+  theme(panel.background = element_blank())+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p
+
+```
+
+
+Plot the cluster composition
+```{r}
+#distribution of cluster per condtition in a staked bar graph
+
+p <- ggplot(cluster_dat, aes(x=cluster_s, y=frac_cells, fill=condition)) + 
+  geom_bar(stat='identity')+
+  scale_fill_manual(values = col_vector)+
+  coord_flip()+
+  theme(panel.background = element_blank())+
+  ggtitle('cluster composition')
+p
+
+```
+
+
+Plot the condition composition
+```{r}
+p <- ggplot(cluster_dat, aes(x=condition, y=frac_cluster, fill=cluster)) + 
+  geom_bar(stat='identity')+
+  scale_fill_manual(values = col_vector)+
+  coord_flip()+
+  theme(panel.background = element_blank())+
+  ggtitle('Condition composition')
+p
+```
+
+Distribution of cell number per cluster
+
+```{r}
+
+
+#distribution of cells per cluster
+cluster_sum =cluster_dat[, .(cells_cluster = sum(ncells)), by=cluster_s]
+p <- ggplot(cluster_sum, aes(x=cluster_s, y=cells_cluster)) + 
+  geom_bar(stat='identity')+
+  coord_flip()+
+  theme(panel.background = element_blank())+
+  ggtitle('distribution of cell numbers')
+p
+
+
+
+```
+
+Distribution of conditions per cluster
+```{r}
+###
+cluster_dat[, frac_cells_condition := ncells/sum(ncells), by=condition]
+cluster_dat[, frac_cells_scaled := frac_cells_condition/sum(frac_cells_condition), by=cluster]
+cluster_dat[, cluster_s := factor(as.character(cluster),levels = row.names(hm_dat)[hr$order])]
+
+p <- merge(cluster_dat, dat_meta,by = 'condition') %>%
+  ggplot(aes(x=cluster_s, y=frac_cells_scaled, fill=stimulation)) + 
+  geom_bar(stat='identity')+
+  scale_fill_manual(values = col_vector)+
+  coord_flip()+
+  theme(panel.background = element_blank())+
+  ggtitle('Distribution of conditions per cluster')
+p
+
+p <- merge(cluster_dat, dat_meta,by = 'condition') %>%
+  ggplot(aes(x=cluster_s, y=frac_cells_scaled, fill=well)) + 
+  geom_bar(stat='identity')+
+  scale_fill_manual(values = col_vector)+
+  coord_flip()+
+  theme(panel.background = element_blank())+
+  ggtitle('Distribution of conditions per cluster')
+p
+
+merge(cluster_dat, dat_meta,by = 'condition')
+```
+
+
+## an example how to add manual cluster annotations
+
+(These annotations actually do not fit this example dataset - it is just an illustration how it can be done)
+```{r}
+fn_clusterannot = './exampledata/example_clusteranotations.csv'
+
+dat_clusterannot = fread(fn_clusterannot)
+
+merge(dat[cluster_pheno], dat_clusterannot, by='cluster') 
+```
+
+Whenever needed the cluster annotations can now be added to the cluster data
+```{r}
+
+p <- merge(cluster_dat, dat_clusterannot, by='cluster') %>% 
+  ggplot(aes(x=condition, y=frac_cluster, fill=celltype, color=cluster)) + 
+  geom_bar(stat='identity')+
+  scale_fill_manual(values = col_vector)+
+  coord_flip()+
+  theme(panel.background = element_blank())+
+  ggtitle('Condition composition')
+p
+```
+
+Condition metadata and cluster metadata can be even combined simultaneoulsy
+
+
+```{r, fig.height=5, fig.width=5}
+
+p <- merge(cluster_dat, dat_clusterannot, by='cluster') %>%
+  merge(dat_meta, by='condition') %>%
+  ggplot(aes(x=stimulation, y=frac_cluster, fill=celltype)) + 
+  geom_bar(stat='identity')+
+  scale_fill_manual(values = col_vector)+
+  coord_flip()+
+  theme(panel.background = element_blank())+
+  ggtitle('Condition composition')
+print(p)
+ggsave(file.path(out_folder, 'condtion_composition.pdf'),plot=p,  width = 5, height = 5)
+```
+
+
+
+Rseminar: Colormap example
+
+```{r}
+p <- merge(cluster_dat, dat_clusterannot, by='cluster') %>%
+  merge(dat_meta, by='condition') %>%
+  ggplot(aes(x=stimulation, y=frac_cluster, fill=celltype)) + 
+  geom_bar(stat='identity')+
+  scale_fill_brewer(type = 'qual',palette = 'set1')+
+  coord_flip()+
+  theme(panel.background = element_blank())+
+  ggtitle('Condition composition')
+print(p)
+```
+
+
+
+## additional examples how to use the data
+
+Example how to add the metadata:
+```{r}
+merge(dat, dat_meta,by = 'condition')
+```
+
+
+How to summarize with data.table
+```{r}
+dat[channel=='barcode', mean(counts)]
+dat[, mean(counts), by=list(channel, condition)]
+dat[, .(meancounts=mean(counts),
+        n=.N),
+    , by=list(channel, condition)]
+
+dat[, counts_mean_normalized := counts/mean(counts), by=list(channel, condition)]
+
+
+dat[, counts_mean_normalized := counts/mean(counts), by=list(channel, condition)]
+```
+
+Example of renaming and deleting
+```{r rename a channel}
+dat[channel == "HLA.ABC", channel := 'HLA-ABC']
+# remove a column
+# add it as an example
+dat[, channel3 := channel]
+
+# remove it
+dat[, channel3 := NULL]
+
+
+#dat = dat[!channel %in% c('Time', 'barcode'),]
+
+```
+
+```{r}
+sessionInfo()
+```
+
