@@ -1,0 +1,81 @@
+---
+title: "Giotto Analysis"
+author: "Nils Eling"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This script uses the recently published Giotto package to perform low- and higher-level spatial analyses on IMC data.
+
+## Installation
+
+The technical requirements for this package are: R (>= 3.5.1), Python (>= 3.0) and a Unix/Linux system.
+To install the R version of Giotto, execute the following code.
+
+```{r installation-1, eval=FALSE}
+library(devtools)
+install_github("RubD/Giotto")
+```
+
+To fully use the package, the following python packages need to be installed:
+
+```{r installation-2, eval=FALSE}
+# pandas:
+conda install -c anaconda pandas
+
+# python-igraph:
+conda install -c conda-forge python-igraph
+conda install -c conda-forge/label/gcc7 python-igraph
+conda install -c conda-forge/label/cf201901 python-igraph 
+
+# networkx:
+conda install -c anaconda networkx
+
+# louvain:
+conda install -c conda-forge python-louvain
+conda install -c conda-forge/label/gcc7 python-louvain
+conda install -c conda-forge/label/cf201901 python-louvain
+
+# leidenalg:
+conda install -c conda-forge leidenalg
+```
+
+Finally, in order to use the hidden markov random field approach as explained [here](https://www.nature.com/articles/nbt.4260), the following R package needs to be installed:
+
+```{r installation-3, eval=FALSE}
+install_bitbucket("qzhudfci/smfishhmrf-r", ref="default")
+```
+
+The package can now be loaded:
+
+```{r load-package}
+library(Giotto)
+```
+
+## Reading in the data
+
+In the first instance, we want to create the `giotto` R object, which is an S4 class object storing all relevant metadata.
+As an example, I will use the cell data from a single image generated for the Damond _et al._ paper available [here](https://www.sciencedirect.com/science/article/pii/S1550413118306910#sec4).
+
+First, we will read in the cell-level ion counts.
+
+```{r read-data}
+if(!file.exists("raw_data.txt")){
+  download.file(url = "https://data.mendeley.com/datasets/cydmwsfztj/1/files/bf3c4c19-7105-460d-b348-67bed6a29ed5/Cells.7z?dl=1",
+              destfile = "Cells.7z")
+  system('7z e Cells.7z')
+  file.remove("Cells.7z")
+}
+
+# Read in the cell-level counts
+
+cells <- 
+```
+
