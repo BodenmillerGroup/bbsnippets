@@ -175,20 +175,80 @@ goobject
 print.giotto(goobject)
 ```
 
-Furthermore, the cell metadata can be stored within the `Giotto` object.
-The package does not specify in which format the metadata should be stored.
-But the function only works when it's supplied as `data.table`.
-However neither the `show` or `print` method display information on the structure of the metadata.
+Furthermore, the cell and protein metadata can be stored within the `Giotto` object.
+
+For this, the `addCellMetadata` and `addGeneMetadata` wrapper functions can be used.
+
+```{r add-metadata}
+# Add cell metadata
+goobject <- addCellMetadata(goobject, as.data.table(metadata))
+
+# Add gene metadata
+goobject <- addGeneMetadata(goobject, as.data.table(panel[match(rownames(raw.counts), panel$clean_Target),]))
+```
+
+Alternatively, these slots can be added directly when creating the Giotto object.
 
 ```{r giotto-meta}
 # Create Giotto object
 goobject <- createGiottoObject(raw_exprs = raw.counts,
                                spatial_locs = data.frame(x = metadata$Location_Center_X, 
                                                             y = metadata$Location_Center_Y), 
-                               cell_metadata = as.data.table(metadata))
+                               cell_metadata = as.data.table(metadata), 
+                               gene_metadata = as.data.table(panel[match(rownames(raw.counts), panel$clean_Target),]))
 # Print method
 print.giotto(goobject)
+```
 
-# Manual extraction of metadata
-head(goobject@cell_metadata)
+# Low-level functions for data accession
+
+In this paragraph, I will highlight accessor functions to be used on the Giotto object.
+
+```{r feature-extraction}
+# Select cell metadata
+head(pDataDT(goobject))
+
+# Gene metadata
+head(fDataDT(goobject))
+```
+
+The `Giotto` object allows storing multiple 'assays' which can be the following: raw ion counts, normalized ion counts, scaled ion counts amd custom ion counts.
+These slots can be accessed using the `select_expression_values` function.
+
+```{r select_expression_values}
+# Raw counts
+dim(select_expression_values(gobject = goobject, values = "raw"))
+
+# Normalized counts - not included in the object
+dim(select_expression_values(gobject = goobject, values = "normalized"))
+```
+
+The `Giotto` object can be subsetted using the `subsetGiotto` function.
+
+```{r subsetGiotto}
+subsetGiotto(goobject, cell_ids = seq(1,1000), gene_ids = c("H3", "CD20"))
+```
+
+# Quality control 
+
+`filterDistributions` and `filterCombinations` and `filterGiotto`
+
+
+# Normalization
+
+`normalizeGiotto`, `adjustGiottoMatrix` for batch effect removal
+
+# Clustering
+
+Clustering
+
+`annotateGiotto` for annotation
+
+`create_average_DT` and `create_average_detection_DT`
+
+
+## Session Info
+
+```{r session-info}
+sessionInfo()
 ```
