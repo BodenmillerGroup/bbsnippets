@@ -67,7 +67,7 @@ As an example, I will use the cell data from a single image generated for the Da
 First, we will read in the cell-level ion counts.
 
 ```{r read-data}
-if(!file.exists("raw_data.txt")){
+if(!file.exists("All_Cells.csv")){
   download.file(url = "https://data.mendeley.com/datasets/cydmwsfztj/1/files/bf3c4c19-7105-460d-b348-67bed6a29ed5/Cells.7z?dl=1",
               destfile = "Cells.7z")
   system('7z e Cells.7z')
@@ -75,7 +75,42 @@ if(!file.exists("raw_data.txt")){
 }
 
 # Read in the cell-level counts
-
-cells <- 
+library(data.table)
+cells <- fread("All_Cells.csv")
 ```
 
+For convenience, we will only run Giotto on one single image.
+
+```{r select-image}
+cells <- cells[cells$ImageNumber == "1",]
+```
+
+We will next link all available metadata to the selected image.
+The image numbers saved in the All_Cells.csv file correspond to the CellProfiler (CP) output.
+To link the CP image numbers to the actual image numbers, a metadata file is available.
+
+```{r metadata}
+# Image metadata
+if(!file.exists("All_Cells.csv")){
+  download.file(url = "https://data.mendeley.com/datasets/cydmwsfztj/1/files/540455ba-3253-4f9b-b49f-c24542563da5/Image.7z?dl=1",
+              destfile = "Image.7z")
+  system('7z e Image.7z')
+  file.remove("Image.7z")
+}
+image.meta <- read.csv("All_Image.csv")
+
+# Retrieve the actual image number
+image.number <- image.meta[image.meta$ImageNumber == unique(cells$ImageNumber),"Metadata_Core"]
+image.number
+```
+
+In the next step, we need to find the patient that corresponds to the retrieved image.
+For this, a metadata file that contains the link between patients and images is available.
+
+```{r}
+patient.meta <- read.csv(file = url("https://data.mendeley.com/datasets/cydmwsfztj/1/files/fd3aae49-310e-4f0f-b92d-7ba2fad8aead/Metadata.csv?dl=1"))
+
+# Retrieve patient
+patient.number <- patient.meta[patient.meta$image == image.number,"case"]
+patient.number
+```
