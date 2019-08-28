@@ -127,3 +127,68 @@ if(!file.exists("A01_a0_full.tiff")){
   system("find . ! -name 'A01_a0_full.tiff' -name '*full*' -type f -exec rm -f {} +")
 }
 ```
+
+Lastly, we will read in the dataframe that links the protein names to the individual channels.
+
+```{r panel}
+panel <- read.csv(file = url("https://data.mendeley.com/datasets/cydmwsfztj/1/files/852bc00d-d72f-4772-a460-b820b98da3c6/Panel.csv?dl=1"))
+```
+
+We now obtained all files necessary to work with Giotto.
+
+
+## Prepare data
+
+In this section, we will slightly modify the obtained data to create a `Giotto` S4 object.
+First, we will need to split the raw counts from the additional metadata files.
+
+```{r select-metadata}
+# First, we will select the raw counts
+raw.counts <- as.matrix(cells)[,grepl("Intensity_MeanIntensity_CleanStack_", colnames(cells))]
+
+# Rename the columns to include the protein names
+colnames(raw.counts) <- panel[as.numeric(sub("^.*c", "", colnames(raw.counts))),"clean_Target"]
+
+# To use the raw counts with giotto, we need to transpose the matrix and add column names
+raw.counts <- t(raw.counts)
+colnames(raw.counts) <- as.character(seq(1,ncol(raw.counts)))
+
+# Now, select the metadata
+metadata <- as.data.frame(cells)[,!grepl("Intensity_MeanIntensity_CleanStack_", colnames(cells))]
+```
+
+## Create the Giotto object
+
+Next, we will store the raw counts and metadata into a `Giotto` S4 class object.
+For this, we can use the `createGiottoObject` wrapper function.
+At this point, it is more robust to create a `data.frame` containing the spatial locations rather than a `data.table`.
+
+```{r giotto-wrapper}
+# Create Giotto object
+goobject <- createGiottoObject(raw_exprs = raw.counts,
+                               spatial_locs = data.frame(x = metadata$Location_Center_X, 
+                                                            y = metadata$Location_Center_Y))
+# Generic show method
+goobject
+
+# Giotto specific method to print object
+print.giotto(goobject)
+```
+
+Furthermore, the cell metadata can be stored within the `Giotto` object.
+The package does not specify in which format the metadata should be stored.
+But the function only works when it's supplied as `data.table`.
+However neither the `show` or `print` method display information on the structure of the metadata.
+
+```{r giotto-meta}
+# Create Giotto object
+goobject <- createGiottoObject(raw_exprs = raw.counts,
+                               spatial_locs = data.frame(x = metadata$Location_Center_X, 
+                                                            y = metadata$Location_Center_Y), 
+                               cell_metadata = as.data.table(metadata))
+# Print method
+print.giotto(goobject)
+
+# Manual extraction of metadata
+head(goobject@cell_metadata)
+```
