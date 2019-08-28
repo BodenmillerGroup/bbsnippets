@@ -107,10 +107,23 @@ image.number
 In the next step, we need to find the patient that corresponds to the retrieved image.
 For this, a metadata file that contains the link between patients and images is available.
 
-```{r}
+```{r patient-data}
 patient.meta <- read.csv(file = url("https://data.mendeley.com/datasets/cydmwsfztj/1/files/fd3aae49-310e-4f0f-b92d-7ba2fad8aead/Metadata.csv?dl=1"))
 
 # Retrieve patient
 patient.number <- patient.meta[patient.meta$image == image.number,"case"]
 patient.number
+```
+
+We will next download the associated images to this patient.
+
+```{r images}
+# Image data
+if(!file.exists("A01_a0_full.tiff")){
+  download.file(url = "https://data.mendeley.com/datasets/cydmwsfztj/1/files/e7a01a41-37c5-4d22-b69e-e8f3516c097c/6362.7z?dl=1",
+              destfile = "6362.7z")
+  system('7z e 6362.7z')
+  file.remove("6362.7z")
+  system("find . ! -name 'A01_a0_full.tiff' -name '*full*' -type f -exec rm -f {} +")
+}
 ```
