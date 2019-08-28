@@ -32,3 +32,4 @@ venv/
 
 # Downloaded files
 *.csv
+*.tiff
