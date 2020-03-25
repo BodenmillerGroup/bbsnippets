@@ -48,8 +48,8 @@ Set your project specific folders and settings
 # input files: paths to your input and output folder
 
 # a folder containing FCS files to be analysised
-fcs_folder = './exampledata/'
-out_folder = '/home/vitoz/Data/rseminaroutput/'
+fcs_folder = './exampledata'
+out_folder = '/home/vitoz/Data/rseminaroutput'
 
 # the random seed
 rand_seed = 1234
