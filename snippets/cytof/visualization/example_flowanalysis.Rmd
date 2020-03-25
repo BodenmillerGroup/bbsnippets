@@ -569,14 +569,14 @@ merge(cluster_dat, dat_meta,by = 'condition')
 fn_clusterannot = './exampledata/example_clusteranotations.csv'
 
 dat_clusterannot = fread(fn_clusterannot)
-
+dat_clusterannot[, cluster:= factor(cluster, levels=levels(cluster_pheno$cluster))]
 merge(dat[cluster_pheno], dat_clusterannot, by='cluster') 
 ```
 
 Whenever needed the cluster annotations can now be added to the cluster data
 ```{r}
 
-p <- merge(cluster_dat, dat_clusterannot, by='cluster') %>% 
+p <- merge(cluster_dat, dat_clusterannot, by='cluster', all.x = TRUE) %>% 
   ggplot(aes(x=condition, y=frac_cluster, fill=celltype, color=cluster)) + 
   geom_bar(stat='identity')+
   scale_fill_manual(values = col_vector)+
@@ -591,7 +591,7 @@ Condition metadata and cluster metadata can be even combined simultaneoulsy
 
 ```{r, fig.height=5, fig.width=5}
 
-p <- merge(cluster_dat, dat_clusterannot, by='cluster') %>%
+p <- merge(cluster_dat, dat_clusterannot, by='cluster', all.x = T) %>%
   merge(dat_meta, by='condition') %>%
   ggplot(aes(x=stimulation, y=frac_cluster, fill=celltype)) + 
   geom_bar(stat='identity')+
@@ -608,7 +608,7 @@ ggsave(file.path(out_folder, 'condtion_composition.pdf'),plot=p,  width = 5, hei
 Rseminar: Colormap example
 
 ```{r}
-p <- merge(cluster_dat, dat_clusterannot, by='cluster') %>%
+p <- merge(cluster_dat, dat_clusterannot, by='cluster', all.x=T) %>%
   merge(dat_meta, by='condition') %>%
   ggplot(aes(x=stimulation, y=frac_cluster, fill=celltype)) + 
   geom_bar(stat='identity')+
