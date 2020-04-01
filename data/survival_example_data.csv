@@ -1,0 +1,286 @@
+PID,grade,Patientstatus,OSmonth,DFSmonth
+257,3,alive,154,98
+7,3,death,37,37
+166,3,death by primary disease,37,35
+238,1,alive,233,140
+68,1,alive,169,169
+72,3,alive,186,186
+274,2,alive,171,171
+153,1,alive,144,144
+58,2,alive,181,181
+206,1,alive,121,121
+135,2,death by primary disease,37,35
+280,3,alive,166,166
+220,3,death,16,16
+187,1,alive,166,166
+88,1,alive,121,121
+24,3,death by primary disease,105,90
+284,2,alive,169,169
+20,1,alive,118,107
+18,1,alive,118,4
+42,2,alive,189,189
+52,3,death by primary disease,42,14
+141,3,alive,180,180
+83,2,alive,115,115
+100,3,alive,171,171
+204,2,alive,174,174
+177,2,alive,179,179
+31,3,alive,24,24
+216,1,alive w metastases,110,72
+283,2,alive,141,141
+282,1,alive,144,144
+45,2,death,63,63
+133,3,death by primary disease,21,10
+69,3,alive,110,110
+211,2,alive,134,134
+228,1,death by primary disease,90,21
+259,2,alive w metastases,125,99
+239,3,alive,128,128
+117,1,death,100,100
+165,3,death,60,60
+231,2,alive,102,102
+37,3,alive,127,127
+57,2,alive,130,130
+227,2,death,24,24
+234,2,death by primary disease,97,94
+254,3,death by primary disease,21,13
+277,2,death by primary disease,49,23
+86,2,death by primary disease,44,42
+247,2,alive,122,122
+33,3,alive,95,95
+214,3,alive,104,104
+237,2,alive,85,13
+263,3,death by primary disease,44,30
+39,3,alive,115,115
+61,3,death by primary disease,39,19
+44,2,alive,108,108
+186,2,alive,116,116
+224,2,death by primary disease,107,68
+104,2,alive,107,107
+218,2,death by primary disease,67,67
+159,3,death by primary disease,58,28
+38,2,alive,87,87
+114,3,alive,104,99
+196,2,alive,106,106
+268,3,death by primary disease,39,16
+62,2,alive,101,101
+219,2,alive,117,117
+256,1,alive,86,86
+55,2,alive w metastases,114,88
+60,3,death by primary disease,75,73
+92,2,alive w metastases,99,13
+11,2,alive,111,111
+126,3,alive,95,95
+191,3,death,4,4
+40,2,alive,110,110
+14,3,death,1,1
+2,2,alive,101,101
+134,3,death by primary disease,61,35
+112,2,alive,143,143
+53,1,alive,175,175
+129,2,death by primary disease,44,6
+203,1,alive,180,54
+276,2,death by primary disease,55,33
+101,2,death by primary disease,135,33
+41,3,death,14,14
+255,2,death,88,88
+267,3,death by primary disease,13,0
+48,3,death by primary disease,2,2
+212,2,alive,137,137
+106,2,death,97,97
+249,3,death by primary disease,109,100
+63,2,death,89,89
+8,3,death by primary disease,16,5
+9,3,death,32,7
+13,1,alive,63,63
+215,2,alive,152,152
+36,2,alive,144,144
+113,2,alive,121,121
+84,3,alive,84,84
+105,2,alive,119,50
+6,3,alive,79,79
+265,3,death by primary disease,41,38
+156,1,alive,174,174
+51,1,alive,143,143
+25,2,death by primary disease,102,68
+120,1,alive,172,172
+29,3,death,11,11
+240,2,alive,165,165
+28,2,alive,167,167
+253,2,alive,112,112
+251,3,alive,139,139
+217,2,alive,145,145
+80,2,death,76,76
+70,3,alive,97,97
+30,3,alive,82,82
+96,3,alive,181,181
+10,1,death,66,66
+35,2,alive,185,185
+138,2,death by primary disease,77,28
+264,2,death,113,113
+160,2,alive,178,178
+54,2,death,7,7
+98,1,death by primary disease,99,99
+91,2,alive,195,195
+161,2,death,52,52
+188,3,death by primary disease,44,44
+74,3,alive,72,72
+190,2,death by primary disease,59,24
+192,3,alive,93,93
+185,3,death by primary disease,22,3
+145,3,alive,98,98
+181,2,alive,71,71
+16,1,alive,89,89
+189,3,death by primary disease,20,13
+210,2,alive,70,70
+275,3,alive,69,69
+154,2,alive,72,72
+89,3,alive,95,95
+183,1,alive,93,93
+56,2,alive,90,90
+130,1,alive,86,86
+136,3,alive,97,97
+175,3,death by primary disease,21,16
+76,2,alive,83,83
+158,2,alive,67,67
+261,2,alive,80,80
+109,1,alive,78,78
+174,2,alive,85,85
+123,3,alive,47,47
+64,3,death by primary disease,50,39
+232,3,alive,89,54
+27,3,alive,51,51
+148,3,alive w metastases,66,4
+81,3,alive,89,89
+279,2,alive,80,80
+152,2,alive,81,81
+146,2,alive,72,72
+229,3,alive,74,74
+171,2,alive,62,62
+176,3,death by primary disease,10,7
+99,3,alive,80,80
+258,2,alive,80,80
+273,1,alive,77,77
+285,2,alive,67,67
+5,2,alive,79,79
+223,1,alive,75,75
+46,3,alive,74,74
+236,2,death by primary disease,23,9
+73,2,alive,68,68
+178,3,alive,71,71
+151,3,alive,70,70
+208,2,alive,73,73
+182,3,alive,66,33
+127,2,alive,64,64
+169,1,alive,58,58
+184,3,alive,57,57
+198,1,alive,59,59
+71,1,alive,27,27
+164,3,alive,33,33
+262,3,alive,57,57
+121,3,alive,63,63
+12,3,alive,59,59
+179,3,alive,54,54
+167,3,alive,36,36
+163,3,alive,58,58
+82,3,alive,58,58
+59,3,alive,53,53
+155,3,alive,25,25
+162,3,alive,141,141
+87,3,death by primary disease,13,11
+142,3,death,29,12
+1,2,death by primary disease,33,0
+128,2,death by primary disease,44,0
+17,2,alive,71,71
+102,3,death by primary disease,38,15
+173,2,alive,53,53
+79,2,alive,65,65
+271,3,alive,71,71
+131,1,alive,75,75
+143,3,alive,70,70
+233,1,alive,61,61
+243,1,alive,58,58
+278,2,alive,65,65
+132,2,alive,68,68
+34,3,alive,96,96
+144,2,alive,61,61
+124,2,alive,57,57
+180,2,alive,65,65
+222,2,alive,58,58
+4,1,alive,63,63
+260,2,alive,59,59
+118,2,alive,53,53
+119,3,alive,61,61
+248,2,alive,56,56
+201,1,alive,54,54
+266,2,alive,59,59
+122,3,alive,58,58
+67,3,alive,8,8
+49,2,alive,107,107
+244,2,alive,110,110
+75,1,alive,35,35
+47,3,alive,4,4
+21,3,alive,90,90
+23,3,alive,1,1
+272,2,alive,1,1
+137,3,alive,1,1
+200,3,alive,149,147
+111,3,alive,0,0
+90,3,alive,1,1
+147,3,alive,1,1
+172,3,alive,1,1
+242,2,alive w metastases,88,73
+32,2,alive,75,41
+205,2,alive w metastases,38,34
+246,1,alive w metastases,74,47
+207,2,alive w metastases,77,77
+26,2,alive,182,33
+93,3,death,12,11
+97,3,alive w metastases,107,15
+66,2,death by primary disease,32,14
+65,3,alive w metastases,130,130
+3,3,death by primary disease,23,23
+235,2,death by primary disease,191,33
+22,2,death by primary disease,33,23
+140,2,alive w metastases,88,49
+195,3,death by primary disease,56,12
+149,3,death by primary disease,38,24
+194,2,alive,105,36
+252,1,alive w metastases,123,33
+125,3,death by primary disease,17,15
+107,3,alive,44,23
+193,2,alive w metastases,33,22
+213,3,alive,41,41
+281,3,death by primary disease,41,23
+221,3,alive w metastases,171,40
+139,3,death by primary disease,84,81
+95,2,alive w metastases,152,146
+19,3,alive,195,195
+250,2,alive,200,157
+170,2,alive w metastases,15,15
+150,3,alive,103,39
+94,3,alive w metastases,68,17
+241,3,alive,3,3
+202,2,alive w metastases,22,0
+209,3,death by primary disease,74,38
+50,3,death by primary disease,15,5
+157,3,death by primary disease,44,21
+43,2,death by primary disease,55,53
+108,3,death by primary disease,35,23
+85,2,death by primary disease,75,74
+199,3,death by primary disease,28,23
+230,3,alive,6,6
+168,3,alive,36,36
+78,3,death by primary disease,61,12
+115,2,alive,54,54
+116,3,alive,46,46
+103,3,alive,12,12
+77,3,alive,33,33
+270,3,alive,23,23
+110,3,death,13,0
+15,3,alive,87,87
+225,2,alive w metastases,18,9
+226,3,alive,143,143
+245,2,alive w metastases,94,94
+269,2,alive,150,150
+197,1,alive,95,95

@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(data.table)
 
-surv_dat = fread('/mnt/bbsnippets/survival_example_dat.csv',header = T)
+surv_dat = fread('/home/jana/Github/bbsnippets/data/survival_example_data.csv',header = T)
 head(surv_dat)
 
 # Column description:
