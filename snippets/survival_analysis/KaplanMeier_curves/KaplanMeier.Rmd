@@ -7,90 +7,91 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
-# Color map
-```{r}
-library(RColorBrewer)
-qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
-col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
-col_vector = unique(col_vector)
-```
-
 # Read in data
 ```{r}
 library(data.table)
-surv_dat = fread('D:/Jana/PhD/BBsnippets/surv_dat.csv',header = T)
+
+surv_dat = fread('/home/jana/Github/bbsnippets/data/survival_example_data.csv',header = T)
 head(surv_dat)
+
+# Column description:
+## PID: patient identifier
+## grade: tumor pathology grade
+## OSmonth: overall suvival from time of diagnosis [months]
+## DFSmonth: disease free survival from time of diagnosis [months]
+## Patientstatus: life/death status 
+### "death by primary disease" = death due to disease
+### "death" = disease unrelated death
+### "alive" = alive at given survival time
+### "alive w metastases" = alive with metasatses at given survival time
 
 ```
 
 # Prepare data for Kaplan-Meier survival curves
 ```{r}
-library(stringr)
 library(survival)
 
-#Censoring for overall survival
-surv_dat$censoringOS[str_detect(surv_dat$Patientstatus,'death by primary disease')] = 1
-surv_dat$censoringOS[is.na(surv_dat$censoringOS)] = 0
+#Censoring for overall survival (1 = event (death due to disease), 0 = censored)
+surv_dat$censoringOS = 0
+surv_dat$censoringOS[surv_dat$Patientstatus == 'death by primary disease'] = 1
 
-#Censoring for disease free survival
-surv_dat$censoringDFS[str_detect(surv_dat$Patientstatus,'alive w metastases')] = 1
+#Censoring for disease free survival (1 = event (recurrence), 0 = censored)
+surv_dat$censoringDFS = 0
+surv_dat$censoringDFS[surv_dat$Patientstatus == 'alive w metastases'] = 1
 surv_dat$censoringDFS[surv_dat$OSmonth > surv_dat$DFSmonth] = 1 
-surv_dat$censoringDFS[is.na(surv_dat$censoringDFS)] = 0
 
-#Kaplan-Meiers for overall survival or disease free survival
-SurvObj <- Surv(surv_dat$OSmonth, surv_dat$censoringOS) # or DFSmonth, censoringDFS
+
+#Survival object for OS and DFS
+SurvObj_OS <- Surv(surv_dat$OSmonth, surv_dat$censoringOS)
+SurvObj_DFS <- Surv(surv_dat$DFSmonth, surv_dat$censoringDFS)
+
+```
+
+# Compute OS survival curves for the different pathology grades (for DFS just use SurvObj_DFS instead)
+```{r}
+
+#Compute survival curve across all patients
+KM_all <- survfit(SurvObj_OS ~ 1)
+
+#Compute survival curves for each grade
 surv_dat$grade = as.factor(surv_dat$grade)
-km.as.groups <- survfit(SurvObj ~ surv_dat$grade)
-km.as.one <- survfit(SurvObj ~ 1)
+KM_groups <- survfit(SurvObj_OS ~ surv_dat$grade)
 
 ```
 
-# Plot all patient group survival curves in one panel, plus overall curve across all patients in black
+# Plot KM survival curves overlaid in one panel
 ```{r}
+library(RColorBrewer)
 
-# #Write out to pdf
-# pdf('D:/Jana/PhD/BBsnippets/KaplanMeier_all.pdf',width = 10,height = 10)
-# plot(km.as.groups,mark.time = T,col = col_vector[as.numeric(levels(surv_dat$grade))])
-# par(new=TRUE)
-# plot(km.as.one,mark.time = T,col = "black")
-# legend(1,1,levels(surv_dat$grade),col_vector[as.numeric(levels(surv_dat$grade))])
-# dev.off()
+#Color map
+cols = brewer.pal(3,"Dark2")
 
-plot(km.as.groups,mark.time = T,col = col_vector[as.numeric(levels(surv_dat$grade))])
+#All patinets survival curve: black, grade survival curves: color (CIs for strata not plotted)
+plot(KM_groups,mark.time = T,col = cols[as.numeric(levels(surv_dat$grade))],conf.int = F)
 par(new=TRUE)
-plot(km.as.one,mark.time = T,col = "black")
-legend(1,1,levels(surv_dat$grade),col_vector[as.numeric(levels(surv_dat$grade))])
+plot(KM_all,mark.time = T,col = "black",conf.int = T)
+legend(1,1,levels(surv_dat$grade),cols[as.numeric(levels(surv_dat$grade))])
 
 ```
 
-# Plot each patient group survival curve in a separate panel
-# together with overall curve across all patients in black
+# Plot each group KM survival curve in individual panel
 ```{r}
 
-# #write out to pdf
-# pdf('D:/Jana/PhD/BBsnippets/KaplanMeier.pdf',width = 20,height = 20)
-# par(mfrow=c(4,5))
-# for (i in levels(surv_dat$grade)){
-#   group_dat = subset(surv_dat, surv_dat$grade == i)
-#   SurvObj_group <- Surv(group_dat$OSmonth, group_dat$censoringOS)
-#   km.group <- survfit(SurvObj_group ~ 1)
-#   plot(km.group,mark.time = T,col = col_vector[as.numeric(i)],xlim=range(1:242))
-#   par(new=TRUE)
-#   plot(km.as.one,mark.time = T,col = "black",xlim=range(1:242))
-#   legend("bottomleft",1,i,col_vector[as.numeric(i)], cex=3)
-# }
-# dev.off()
-
-
+#Loop through grades to plot each in separate panel (plot CIs)
+par(mfrow=c(1,3))
 for (i in levels(surv_dat$grade)){
-  group_dat = subset(surv_dat, surv_dat$grade == i)
-  SurvObj_group <- Surv(group_dat$OSmonth, group_dat$censoringOS)
-  km.group <- survfit(SurvObj_group ~ 1)
-  plot(km.group,mark.time = T,col = col_vector[as.numeric(i)],xlim=range(1:242))
+  
+  #Data corresponding to current grade
+  cur_dat = subset(surv_dat, surv_dat$grade == i)
+  SurvObj_cur <- Surv(cur_dat$OSmonth, cur_dat$censoringOS)
+  KM_cur <- survfit(SurvObj_cur ~ 1)
+  
+  #Current grade group in color
+  plot(KM_cur,mark.time = T,col = cols[as.numeric(i)],xlim=range(1:250),conf.int = T)
   par(new=TRUE)
-  plot(km.as.one,mark.time = T,col = "black",xlim=range(1:242))
-  legend("bottomleft",1,i,col_vector[as.numeric(i)], cex=3)
+  #All patients curve in black
+  plot(KM_all,mark.time = T,col = "black",xlim=range(1:250),conf.int = T)
+  legend("bottomleft",1,i,cols[as.numeric(i)], cex=3)
 }
 
 
