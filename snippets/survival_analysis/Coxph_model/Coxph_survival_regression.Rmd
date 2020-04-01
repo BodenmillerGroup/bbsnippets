@@ -11,49 +11,69 @@ knitr::opts_chunk$set(echo = TRUE)
 # Read in data
 ```{r}
 library(data.table)
-surv_dat = fread('D:/Jana/PhD/BBsnippets/surv_dat.csv',header = T)
+
+surv_dat = fread('/home/jana/Github/bbsnippets/data/survival_example_data.csv',header = T)
+head(surv_dat)
+
+# Column description:
+## PID: patient identifier
+## grade: tumor pathology grade
+## OSmonth: overall suvival from time of diagnosis [months]
+## DFSmonth: disease free survival from time of diagnosis [months]
+## Patientstatus: life/death status 
+### "death by primary disease" = death due to disease
+### "death" = disease unrelated death
+### "alive" = alive at given survival time
+### "alive w metastases" = alive with metasatses at given survival time
+
+```
+
+# Prepare censoring information
+```{r}
+
+#Censoring for overall survival (1 = event (death due to disease), 0 = censored)
+surv_dat$censoringOS = 0
+surv_dat$censoringOS[surv_dat$Patientstatus == 'death by primary disease'] = 1
+
+#Censoring for disease free survival (1 = event (recurrence), 0 = censored)
+surv_dat$censoringDFS = 0
+surv_dat$censoringDFS[surv_dat$Patientstatus == 'alive w metastases'] = 1
+surv_dat$censoringDFS[surv_dat$OSmonth > surv_dat$DFSmonth] = 1 
 
 ```
 
 # Coxph survival model for grade
 ```{r}
-library(stringr)
 library(survival)
 library(ggplot2)
 
-#Censoring for overall survival
-surv_dat$censoringOS[str_detect(surv_dat$Patientstatus,'death by primary disease')] = 1
-surv_dat$censoringOS[is.na(surv_dat$censoringOS)] = 0
+#Set reference level for grade groups (first level)
+surv_dat$grade = factor(surv_dat$grade,levels = 1:3)
 
-#Censoring for disease free survival
-surv_dat$censoringDFS[str_detect(surv_dat$Patientstatus,'alive w metastases')] = 1
-surv_dat$censoringDFS[surv_dat$OSmonth > surv_dat$DFSmonth] = 1 
-surv_dat$censoringDFS[is.na(surv_dat$censoringDFS)] = 0
+#Calculate coxph model
+res = coxph(Surv(surv_dat$OSmonth, surv_dat$censoringOS) ~ grade , data =  surv_dat)
+summary(res)
 
-#Coxph only grade
-surv_dat$grade = factor(surv_dat$grade,levels = 1:3) #pick reference level (first level)
-
-res1 = coxph(Surv(surv_dat$OSmonth, surv_dat$censoringOS) ~ grade , data =  surv_dat)
-summary(res1)
-
-#Visualize hazard ratios
-CI = confint(res1)
-df <- data.frame(x = names(res1$coefficients),
-                 HR = exp(res1$coefficients),
+#Extract hazard ratios and confidence intervals from model output
+CI = confint(res)
+dt <- data.table(x = names(res$coefficients),
+                 HR = exp(res$coefficients),
                  L = exp(CI[,1]),
                  U = exp(CI[,2]))
-df = data.table(df)
-df = df[order(HR),]
-df$x = factor(df$x, levels = df$x)
-df$sign[df$L < 1 & df$U < 1] = 1
-df$sign[df$L > 1 & df$U > 1] = 1
-df$sign[is.na(df$sign)] = 0
-df$sign = factor(df$sign)
 
-ggplot(df, aes(x = x, y = HR, color = sign)) +
+#Sort by increasing hazard ratio
+dt = dt[order(HR),]
+
+#Association is significant if the CI of the hazard ratio does not include 1
+dt$sign = "non significant"
+dt$sign[dt$L < 1 & dt$U < 1] = "significant"
+dt$sign[dt$L > 1 & dt$U > 1] = "significant"
+
+#Visualize hazard ratios
+ggplot(dt, aes(x = x, y = HR, color = sign)) +
 geom_point(size = 4) +
 geom_errorbar(aes(ymax = U, ymin = L))+
-scale_color_manual(values = c('light blue','red'))+
+scale_color_manual(values = c('lightblue','red'))+
 coord_flip()+ylim(0,5)+
 geom_hline(yintercept = 1,color = 'blue')+
 scale_y_continuous(trans='log')
