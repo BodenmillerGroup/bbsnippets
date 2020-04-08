@@ -43,7 +43,7 @@ Note: Runtimes indicated are on my machine with 32 cores and 128 Gb ram.
 ```{r}
 # Change to FALSE if running this example on Binderhub, as otherwise the Kernel will crash
 # If your run it on your own machine with >4GB run, consider setting this to TRUE.
-IS_NOT_BINDER = FALSE
+IS_NOT_BINDER = TRUE
 ```
 
 ```{r}
@@ -191,6 +191,10 @@ system.time({print(p)})
 
 ```
 
+```{r}
+
+```
+
 This visualization is now really almost equivalent to the `geom_pointdensity` - but way faster
 and better scaling.
 
@@ -202,6 +206,33 @@ p <- ggplot(dists_shuffled, aes(x=x, y=y))+
     stat_bin2d(aes(color=..count..), bins=100, geom='point', size=1.4, fill=1)+
     scale_color_viridis(trans = "log10", option='inferno')+
     ggtitle('Bin2D Points\nCoarser Fake Points\nRuntime: ca 0.5 s')
+
+system.time({print(p)})
+
+
+```
+
+Whenever bin2d is uese, also geom_hexbin can be used:
+
+```{r}
+p <- ggplot(dists_shuffled, aes(x=x, y=y))+
+    geom_hex(bins=300)+
+    scale_fill_viridis(trans = "log10", option='inferno')+
+    ggtitle('Hexbin Points\nFill\nRuntime: ca 0.5 s')
+
+system.time({print(p)})
+
+
+```
+
+Here I find this much nicer looking when mapping the 'color' instead of 'fill':
+
+
+```{r}
+p <- ggplot(dists_shuffled, aes(x=x, y=y))+
+    geom_hex(aes(color=..count..),bins=300, fill=1)+
+    scale_color_viridis(trans = "log10", option='inferno')+
+    ggtitle('Hexbin Points\nColor\nRuntime: ca 0.5 s')
 
 system.time({print(p)})
 
@@ -431,7 +462,7 @@ Again one could use points to plot the bins, to get a more scatterplot like apea
 
 ```{r}
 p <- ggplot(dists, aes(x=x, y=y))+
-    stat_summary_2d(aes(z=value, color=stat(value)),bins=500,fun=get_first, geom='point', fill=1, size=1/20)+
+    stat_summary_2d(aes(z=value, color=stat(value)),bins=500,fun=sample_one, geom='point', fill=1,size=0.5)+
     scale_color_viridis( name = "Random value", option='inferno',
                         limits=c(0,8) # limits added to improve comparibility with other scatterplots, not necessary
                        )+
@@ -441,12 +472,26 @@ system.time({print(p)})
 
 ```
 
-When using the shuffeled version, this can be (slightly faster) achieved by just taking the first element every time. This avoids sampling.
+Again stat_hexbin could be used as well:
 
 ```{r}
+p <- ggplot(dists, aes(x=x, y=y))+
+    stat_summary_hex(aes(z=value, color=stat(value)),bins=500,fun=sample_one, fill=1)+
+    scale_color_viridis( name = "Random value", option='inferno',
+                        limits=c(0,8) # limits added to improve comparibility with other scatterplots, not necessary
+                       )+
+    coord_fixed()+
+    ggtitle('Hexbin\nRandom bin value')
+system.time({print(p)})
 
+```
+
+When using the shuffeled version, this can be (slightly faster) achieved by just taking the first element every time.
+This avoids sampling as the data is already shuffled.
+
+```{r}
 p <- ggplot(dists_shuffled, aes(x=x, y=y))+
-    stat_summary_2d(aes(z=value, color=stat(value)),bins=500,fun=get_first, geom='point', fill=1, size=1/20)+
+    stat_summary_hex(aes(z=value, color=stat(value)),bins=500,fun=get_first, fill=1)+
     scale_color_viridis( name = "Random value", option='inferno',
                         limits=c(0,8) # limits added to improve comparibility with other scatterplots, not necessary
                        )+
