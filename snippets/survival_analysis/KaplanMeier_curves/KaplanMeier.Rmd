@@ -1,5 +1,5 @@
 ---
-title: "KaplanMeier"
+title: "Kaplan Meier"
 output: html_document
 ---
 
@@ -16,29 +16,29 @@ library(RColorBrewer)
 surv_dat = fread('~/Github/bbsnippets/data/survival_example_data.csv',header = T)
 head(surv_dat)
 
-# Column description:
-## PID: patient identifier
-## grade: tumor pathology grade
-## OSmonth: overall suvival from time of diagnosis [months]
-## DFSmonth: disease free survival from time of diagnosis [months]
-## Patientstatus: life/death status 
-### "death by primary disease" = death due to disease
-### "death" = disease unrelated death
-### "alive" = alive at given survival time
-### "alive w metastases" = alive with metasatses at given survival time
-
 ```
 
+Column description:  
+ PID: patient identifier  
+ grade: tumor pathology grade  
+ OSmonth: overall suvival from time of diagnosis [months]  
+ DFSmonth: disease free survival from time of diagnosis [months]  
+ Patientstatus: life/death status   
+  "death by primary disease" = death due to disease  
+  "death" = disease unrelated death  
+  "alive" = alive at given survival time  
+  "alive w metastases" = alive with metasatses at given survival time  
+
 # Prepare data for Kaplan Meier survival curves
+
+Survival data is censored when the event has not yet occurred for a patient
+at a given time or the patient is lost to follow-up during the study. In
+Kaplan Meier survival curves censored patients are indicated by a cross
+on the curve.
+A more detailed explanation can be found here: 
+http://www.sthda.com/english/wiki/survival-analysis-basics#censoring
+
 ```{r}
-# Survival data is censored when the event has not yet occurred for a patient
-# at a given time or the patient is lost to follow-up during the study. In
-# Kaplan Meier survival curves censored patients are indicated by a cross
-# on the curve.
-# A more detailed explanation can be found here: 
-# http://www.sthda.com/english/wiki/survival-analysis-basics#censoring
-
-
 # Censoring for overall survival (1 = event (death due to disease), 0 = censored)
 surv_dat$censoringOS = 0
 surv_dat$censoringOS[surv_dat$Patientstatus == 'death by primary disease'] = 1
@@ -57,10 +57,11 @@ SurvObj_DFS <- Surv(surv_dat$DFSmonth, surv_dat$censoringDFS)
 ```
 
 # Compute Kaplan Meier estimates
-```{r}
-# Use the survfit function from the "survival" package in order to produce
-# the Kaplan Meier estimates of probability of survival over time.
 
+Use the survfit function from the "survival" package in order to produce
+the Kaplan Meier estimates of probability of survival over time.
+
+```{r}
 # Compute the survival curve across all patients in the survival object.
 # Here we use overall suvrival. For disease free just replace the SurvObj_OS
 # with SurvObj_DFS.
@@ -73,11 +74,12 @@ KM_groups <- survfit(SurvObj_OS ~ surv_dat$grade)
 ```
 
 # Plot survival curves overlaid in one panel
-```{r}
-# Use the plot function from the survival package to visualize the KM
-# survival curves. Alternatively, one could use the "ggfortify" package
-# providing the ggplot2::autoplot function.
 
+Use the plot function from the survival package to visualize the KM
+survival curves. Alternatively, one could use the "ggfortify" package
+providing the ggplot2::autoplot function.
+
+```{r}
 # Color map for plotting
 cols = brewer.pal(3,"Dark2")
 
@@ -90,10 +92,10 @@ legend(1,1,levels(surv_dat$grade),cols[as.numeric(levels(surv_dat$grade))])
 ```
 
 # Plot survival curves in individual panels
-```{r}
-# Loop through grades to plot each in separate panel (plot CIs)
-# and plot curve across all patients as a reference in each panel.
 
+Loop through grades to plot each in separate panel (plot CIs)
+and plot curve across all patients as a reference in each panel.
+```{r}
 par(mfrow=c(1,3))
 for (i in levels(surv_dat$grade)){
   

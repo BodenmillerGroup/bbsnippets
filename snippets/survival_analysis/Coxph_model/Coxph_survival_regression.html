@@ -406,42 +406,33 @@ head(surv_dat)</code></pre>
 ## 4: 238     1                    alive     233      140
 ## 5:  68     1                    alive     169      169
 ## 6:  72     3                    alive     186      186</code></pre>
-<pre class="r"><code># Column description:
-## PID: patient identifier
-## grade: tumor pathology grade
-## OSmonth: overall suvival from time of diagnosis [months]
-## DFSmonth: disease free survival from time of diagnosis [months]
-## Patientstatus: life/death status 
-### &quot;death by primary disease&quot; = death due to disease
-### &quot;death&quot; = disease unrelated death
-### &quot;alive&quot; = alive at given survival time
-### &quot;alive w metastases&quot; = alive with metasatses at given survival time</code></pre>
+<p>Column description:<br />
+PID: patient identifier<br />
+grade: tumor pathology grade<br />
+OSmonth: overall suvival from time of diagnosis [months]<br />
+DFSmonth: disease free survival from time of diagnosis [months]<br />
+Patientstatus: life/death status<br />
+“death by primary disease” = death due to disease<br />
+“death” = disease unrelated death<br />
+“alive” = alive at given survival time<br />
+“alive w metastases” = alive with metasatses at given survival time</p>
 </div>
 <div id="prepare-censoring-information" class="section level1">
 <h1>Prepare censoring information</h1>
-<pre class="r"><code># Survival data is censored when the event has not yet occurred for a patient
-# at a given time or the patient is lost to follow-up during the study.
-# A more detailed explanation can be found here: 
-# http://www.sthda.com/english/wiki/survival-analysis-basics#censoring
-
-
-#Censoring for overall survival (1 = event (death due to disease), 0 = censored)
+<p>Survival data is censored when the event has not yet occurred for a patient at a given time or the patient is lost to follow-up during the study. A more detailed explanation can be found here: <a href="http://www.sthda.com/english/wiki/survival-analysis-basics#censoring" class="uri">http://www.sthda.com/english/wiki/survival-analysis-basics#censoring</a></p>
+<pre class="r"><code># Censoring for overall survival (1 = event (death due to disease), 0 = censored)
 surv_dat$censoringOS = 0
 surv_dat$censoringOS[surv_dat$Patientstatus == &#39;death by primary disease&#39;] = 1
 
-#Censoring for disease free survival (1 = event (recurrence), 0 = censored)
+# Censoring for disease free survival (1 = event (recurrence), 0 = censored)
 surv_dat$censoringDFS = 0
 surv_dat$censoringDFS[surv_dat$Patientstatus == &#39;alive w metastases&#39;] = 1
 surv_dat$censoringDFS[surv_dat$OSmonth &gt; surv_dat$DFSmonth] = 1 </code></pre>
 </div>
 <div id="coxph-survival-model-for-grade-groups" class="section level1">
 <h1>Coxph survival model for grade groups</h1>
-<pre class="r"><code># Covariates passed to the coxph model can be continuous or categorical.
-# With categorical covariates each level is considered a distinct group
-# and the first level is used as reference.
-
-
-#Set reference level for grade groups (first level)
+<p>Covariates passed to the coxph model can be continuous or categorical. With categorical covariates each level is considered a distinct group and the first level is used as reference.</p>
+<pre class="r"><code>#Set reference level for grade groups (first level)
 surv_dat$grade = factor(surv_dat$grade,levels = 1:3)
 
 #Calculate coxph model. The formula requires a standard survival object
@@ -469,17 +460,12 @@ summary(res)</code></pre>
 ## Likelihood ratio test= 22.67  on 2 df,   p=1e-05
 ## Wald test            = 17.88  on 2 df,   p=1e-04
 ## Score (logrank) test = 21.67  on 2 df,   p=2e-05</code></pre>
-<pre class="r"><code># The output contains:
-# Pr(&gt;|z|): Wald statistic of whether the coefficient is statistically significantly 
-# different from 0. Grade 3 is significant.
-# coef: For the regression coefficients a positive sign represents higher risk of death and
-# a negative sign lower risk. Grade 3 has a higher risk of death compared to grade 1.
-# exp(coef): The exponent of the coefficient is the hazard ratio. Grade 3 patients have a
-# risk that is increased by a factor of 9 compared to grade 1.
-# The global statistical significance of the model can be found at the bottom of the output.
-
-# More detailed information and examples of multivariate cox regressions can be found here:
-# http://www.sthda.com/english/wiki/cox-proportional-hazards-model</code></pre>
+<p>The output contains:<br />
+Pr(&gt;|z|): Wald statistic of whether the coefficient is statistically significantly different from 0. Grade 3 is significant.<br />
+coef: For the regression coefficients a positive sign represents higher risk of death and a negative sign lower risk. Grade 3 has a higher risk of death compared to grade 1.<br />
+exp(coef): The exponent of the coefficient is the hazard ratio. Grade 3 patients have a risk that is increased by a factor of 9 compared to grade 1.<br />
+The global statistical significance of the model can be found at the bottom of the output.</p>
+<p>More detailed information and examples of multivariate cox regressions can be found here: <a href="http://www.sthda.com/english/wiki/cox-proportional-hazards-model" class="uri">http://www.sthda.com/english/wiki/cox-proportional-hazards-model</a></p>
 </div>
 <div id="plot-hazard-ratios" class="section level1">
 <h1>Plot hazard ratios</h1>
