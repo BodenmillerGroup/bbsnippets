@@ -39,20 +39,21 @@ sce
 ## Function to summarize the data
 Returns median counts by cluster and by channel. The arguments are the following:  
 `sce` = A SingleCellExperiment object.  
-`expr_values` = A string corresponding to an assay in the sce, should be in `names(sce)`.  
+`expr_values` = A string corresponding to an assay in the sce, should be in `assayNames(sce)`.  
 `cluster_by` = Name of the column containing the clusters.  
-`channels`= channels to include, should be in `rownames(sce)`. If `NULL`, all channels will be summarized.
+`channels` = channels to include, should be in `rownames(sce)`. If `NULL`, all channels will be summarized.  
+`FUN` = c("median","mean") chose if the median or the mean should be returned (default:"median") (optional). 
 ```{r summarizeHeatmap}
-summarizeHeatmap <- function(sce, expr_values, cluster_by, channels=NULL){
+summarizeHeatmap <- function(sce, expr_values, cluster_by, channels=NULL, FUN="median"){
   require(data.table)
 
   # Argument checks
-  if(is.null(expr_values)){
-    expr_values <- names(assays(sce))[1]
-    print(paste0("Warning: Assay type not provided, '", expr_values, "' used."))
+  if(is.null(expr_values) | !(expr_values %in% assayNames(sce))){
+    expr_values <- assayNames(sce)[1]
+    print(paste0("Warning: Assay type not provided or assay type not in 'assayNames(sce)', '", expr_values, "' used."))
   }
 
-  if(is.null(channels[1])){
+  if(is.null(channels)){
     channels <- rownames(sce)
   }
 
@@ -64,10 +65,22 @@ summarizeHeatmap <- function(sce, expr_values, cluster_by, channels=NULL){
     stop("Cluster column not provided")
   }
 
-  if(!cluster_by %in% colnames(colData(sce))){
-    stop("The cluster_by argument should correspond to a colData(sce) column")
+  if(!(cluster_by %in% colnames(colData(sce)))){
+    stop("The 'cluster_by' argument should correspond to a colData(sce) column")
   }
 
+  if(length(cluster_by) > 1){
+    stop("'cluster_by' takes only one argument")
+  }
+  
+  if(length(expr_values) > 1){
+    stop("'expr_values' takes only one argument")
+  }
+
+  if(!(FUN %in% c("median", "mean"))){
+    stop("'FUN' takes either 'median' or 'mean' as an argument")
+  }
+  
   # Convert the data to a melted format
   dat <- as.data.table(t(assay(sce, expr_values)[channels,]))
   dat[, id := colnames(sce)]
@@ -75,21 +88,26 @@ summarizeHeatmap <- function(sce, expr_values, cluster_by, channels=NULL){
   dat <- melt.data.table(dat, id.vars=c('id','cluster'), variable.name='channel', value.name=expr_values)
 
   # Summarize the data
-  dat.summary <- dat[, list(
-    median.val = median(get(expr_values)),
-    mean.val = mean(get(expr_values)),
-    cellspercluster = .N),
-    by = c('channel', 'cluster')]
-
-  # Decast the summarized data and convert to a matrix. Currently only the median values are returned
-  hm.cell <- dcast.data.table(dat.summary, formula='cluster ~ channel', value.var='median.val')
+  if(FUN == "median"){
+    dat.summary <- dat[, list(
+      summarized.val = median(get(expr_values)),
+      cellspercluster = .N),
+      by = c('channel', 'cluster')]
+  } else if (FUN == "mean"){
+    dat.summary <- dat[, list(
+      summarized.val = mean(get(expr_values)),
+      cellspercluster = .N),
+      by = c('channel', 'cluster')]
+  }
+  # Decast the summarized data and convert to a matrix
+  hm.cell <- dcast.data.table(dat.summary, formula='cluster ~ channel', value.var='summarized.val')
   hm.clusters <- hm.cell$cluster
   hm.cell <- as.matrix(hm.cell[, -1, with=FALSE])
   
   # Add rownames
   rownames(hm.cell) <- hm.clusters
 
-  # Return the median values
+  # Return the summarized values
   return(as.matrix(hm.cell))
 }
 ```
@@ -102,7 +120,8 @@ good.channels <- rownames(sce)[! rownames(sce) %in% c('H3', 'PD-1', 'cPARP', 'Ir
 hm <- summarizeHeatmap(sce,
                        expr_values = 'counts',
                        cluster = 'CellType',
-                       channels = good.channels)
+                       channels = good.channels,
+                       FUN = "mean")
 ```
 
 ## Expression heatmap
@@ -123,14 +142,14 @@ heatmaply(heatmaply::percentize(hm))
 
 # Using asinh-transformed counts
 ```{r}
-# Caculate transformed counts
-assay(sce, "exprs") <- asinh(counts(sce) / 1)
-
 # Summarize the data
-hm.exprs <- summarizeHeatmap(sce,
-                             expr_values = 'exprs',
-                             cluster = 'CellType',
-                             channels = good.channels)
+hm <- summarizeHeatmap(sce,
+                       expr_values = 'counts',
+                       cluster = 'CellType',
+                       channels = good.channels)
+
+# Caculate transformed counts
+hm.exprs <- asinh(hm / 1)
 
 # Plot the heatmap
 heatmaply(heatmaply::normalize(hm.exprs))
@@ -138,16 +157,17 @@ heatmaply(heatmaply::normalize(hm.exprs))
 
 # Heatmap with other variables
 Any other variable in `colData(sce)` can be passed to `summarizeHeatmap`.  
-Example with donors (`case`).
+Example with T1D stage (`stage`).
 ```{r}
 # Summarize the data
-hm.cases <- summarizeHeatmap(sce,
-                             expr_values = 'counts',
-                             cluster = 'case',
-                             channels = good.channels)
+hm.stages <- summarizeHeatmap(sce,
+                              expr_values = 'counts',
+                              cluster = 'stage',
+                              channels = good.channels,
+                              FUN = 'mean')
 
 # Plot the heatmap
-heatmaply(heatmaply::normalize(hm.cases))
+heatmaply(hm.stages, scale="column")
 ```
 
 
@@ -167,7 +187,7 @@ heatmaply(heatmaply::normalize(hm), RowSideColors = rsc)
 ## Correlation heatmap
 Displays correlation between channels
 ```{r correlation-heatmap}
-heatmaply_cor(cor(hm))
+heatmaply_cor(cor(hm), distfun="spearman")
 ```
 
 ## Correlation heatmap with point size corresponding to the p-value of the correlation test
@@ -189,6 +209,7 @@ p <- cor.test.p(hm)
 
 heatmaply_cor(
   r,
+  distfun = "spearman",
   node_type = "scatter",
   point_size_mat = -log10(p), 
   point_size_name = "-log10(p-value)",
