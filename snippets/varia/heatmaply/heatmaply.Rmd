@@ -187,16 +187,21 @@ heatmaply(heatmaply::normalize(hm), RowSideColors = rsc)
 ## Correlation heatmap
 Displays correlation between channels
 ```{r correlation-heatmap}
-heatmaply_cor(cor(hm), distfun="spearman")
+heatmaply_cor(cor(hm, method="pearson"))
 ```
 
 ## Correlation heatmap with point size corresponding to the p-value of the correlation test
 https://cran.r-project.org/web/packages/heatmaply/vignettes/heatmaply.html#correlation-heatmaps 
 ```{r correlation-heatmap2}
-r <- cor(hm)
+# Define the correlation method
+cor.method = "pearson"
 
+# Run the correlation test
+r <- cor(hm, method=cor.method)
+
+# Calculate p values
 cor.test.p <- function(x){
-    FUN <- function(x, y) cor.test(x, y)[["p.value"]]
+    FUN <- function(x, y) cor.test(x, y, method=cor.method)[["p.value"]]
     z <- outer(
       colnames(x), 
       colnames(x), 
@@ -207,11 +212,11 @@ cor.test.p <- function(x){
 }
 p <- cor.test.p(hm)
 
+# Plot the heatmap
 heatmaply_cor(
   r,
-  distfun = "spearman",
   node_type = "scatter",
-  point_size_mat = -log10(p), 
+  point_size_mat = -log10(p),
   point_size_name = "-log10(p-value)",
   label_names = c("x", "y", "Correlation")
 )
