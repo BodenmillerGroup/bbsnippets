@@ -2,7 +2,7 @@
 
 This gives strategies to properly plot scatterplots (eg TSNE plots) using millions of cells.
 
-For ggplot2 it recomends "geom_bin2d" (or "geom_hexbin") to bin the data into tiny bins and visualize the
+For ggplot2 it recommends "geom_bin2d" (or "geom_hexbin") to bin the data into tiny bins and visualize the
 log counts as density. It also shows how to still use points instead of bins/hexbins to plot.
 
 To visualize markers it recommends to use "stat_summary_2d" with either "mean" or a function to
