@@ -1,72 +1,92 @@
 ---
-title: "KaplanMeier"
+title: "Kaplan Meier"
 output: html_document
+author: "Jana Fischer"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Read in data
+# Read in survival data
 ```{r}
 library(data.table)
+library(survival)
+library(RColorBrewer)
+library(ggplot2)
+library(broom)
 
-surv_dat = fread('/home/jana/Github/bbsnippets/data/survival_example_data.csv',header = T)
+surv_dat = fread('../../../data/survival_example_data.csv',header = TRUE)
 head(surv_dat)
-
-# Column description:
-## PID: patient identifier
-## grade: tumor pathology grade
-## OSmonth: overall suvival from time of diagnosis [months]
-## DFSmonth: disease free survival from time of diagnosis [months]
-## Patientstatus: life/death status 
-### "death by primary disease" = death due to disease
-### "death" = disease unrelated death
-### "alive" = alive at given survival time
-### "alive w metastases" = alive with metasatses at given survival time
 
 ```
 
-# Prepare data for Kaplan-Meier survival curves
+Column description:  
+ PID: patient identifier  
+ grade: tumor pathology grade  
+ OSmonth: overall suvival from time of diagnosis [months]  
+ DFSmonth: disease free survival from time of diagnosis [months]  
+ Patientstatus: life/death status   
+  "death by primary disease" = death due to disease  
+  "death" = disease unrelated death  
+  "alive" = alive at given survival time  
+  "alive w metastases" = alive with metasatses at given survival time  
+
+# Prepare data for Kaplan Meier survival curves
+
+Survival data is censored when the event has not yet occurred for a patient
+at a given time or the patient is lost to follow-up during the study. In
+Kaplan Meier survival curves censored patients are indicated by a cross
+on the curve.
+A more detailed explanation can be found here: 
+http://www.sthda.com/english/wiki/survival-analysis-basics#censoring
+
 ```{r}
-library(survival)
+# Censoring for overall survival (1 = event (death due to disease), 0 = censored)
+surv_dat[,censoringOS := 0]
+surv_dat[Patientstatus == 'death by primary disease',censoringOS := 1]
 
-#Censoring for overall survival (1 = event (death due to disease), 0 = censored)
-surv_dat$censoringOS = 0
-surv_dat$censoringOS[surv_dat$Patientstatus == 'death by primary disease'] = 1
-
-#Censoring for disease free survival (1 = event (recurrence), 0 = censored)
-surv_dat$censoringDFS = 0
-surv_dat$censoringDFS[surv_dat$Patientstatus == 'alive w metastases'] = 1
-surv_dat$censoringDFS[surv_dat$OSmonth > surv_dat$DFSmonth] = 1 
+# Censoring for disease free survival (1 = event (recurrence), 0 = censored)
+surv_dat[ ,censoringDFS := 0]
+surv_dat[ Patientstatus == 'alive w metastases',censoringDFS := 1]
+surv_dat[ OSmonth > DFSmonth, censoringDFS := 1]
 
 
-#Survival object for OS and DFS
+# Build the standard survival object with the Surv function from the package
+# "survival". A plus behind the survival time inicates censoring in the survival object.
 SurvObj_OS <- Surv(surv_dat$OSmonth, surv_dat$censoringOS)
 SurvObj_DFS <- Surv(surv_dat$DFSmonth, surv_dat$censoringDFS)
 
 ```
 
-# Compute OS survival curves for the different pathology grades (for DFS just use SurvObj_DFS instead)
-```{r}
+# Compute Kaplan Meier estimates
 
-#Compute survival curve across all patients
+Use the survfit function from the "survival" package in order to produce
+the Kaplan Meier estimates of probability of survival over time.
+
+```{r}
+# Compute the survival curve across all patients in the survival object.
+# Here we use overall suvrival. For disease free just replace the SurvObj_OS
+# with SurvObj_DFS.
 KM_all <- survfit(SurvObj_OS ~ 1)
 
-#Compute survival curves for each grade
-surv_dat$grade = as.factor(surv_dat$grade)
+# Compute survival curves for different groups of patients (here grade).
+surv_dat[,grade := as.factor(grade)]
 KM_groups <- survfit(SurvObj_OS ~ surv_dat$grade)
 
 ```
 
-# Plot KM survival curves overlaid in one panel
-```{r}
-library(RColorBrewer)
+# Plot survival curves overlaid in one panel
 
-#Color map
+Use the plot function from the survival package to visualize the KM
+survival curves. Alternatively, one could use the "ggfortify" package
+providing the ggplot2::autoplot function.
+
+```{r}
+# Color map for plotting
 cols = brewer.pal(3,"Dark2")
 
-#All patinets survival curve: black, grade survival curves: color (CIs for strata not plotted)
+# All patinets survival curve: black, grade survival curves: color (CIs for strata not plotted)
 plot(KM_groups,mark.time = T,col = cols[as.numeric(levels(surv_dat$grade))],conf.int = F)
 par(new=TRUE)
 plot(KM_all,mark.time = T,col = "black",conf.int = T)
@@ -74,26 +94,45 @@ legend(1,1,levels(surv_dat$grade),cols[as.numeric(levels(surv_dat$grade))])
 
 ```
 
-# Plot each group KM survival curve in individual panel
-```{r}
+# Plot survival curves in individual panels
 
-#Loop through grades to plot each in separate panel (plot CIs)
+Loop through grades to plot each in separate panel (plot CIs)
+and plot curve across all patients as a reference in each panel.
+```{r}
 par(mfrow=c(1,3))
 for (i in levels(surv_dat$grade)){
   
-  #Data corresponding to current grade
+  # Data corresponding to current grade
   cur_dat = subset(surv_dat, surv_dat$grade == i)
   SurvObj_cur <- Surv(cur_dat$OSmonth, cur_dat$censoringOS)
   KM_cur <- survfit(SurvObj_cur ~ 1)
   
-  #Current grade group in color
+  # Current grade group in color
   plot(KM_cur,mark.time = T,col = cols[as.numeric(i)],xlim=range(1:250),conf.int = T)
   par(new=TRUE)
-  #All patients curve in black
+  # All patients curve in black
   plot(KM_all,mark.time = T,col = "black",xlim=range(1:250),conf.int = T)
   legend("bottomleft",1,i,cols[as.numeric(i)], cex=3)
 }
 
+```
+
+# Plot survival curves with ggplot2
+
+Alternatively, use tidy from the broom package to summarize and format the output of survfit for
+direct use with ggplot2
+```{r}
+
+# Overall curve
+ggplot(tidy(KM_all), aes(time, estimate)) + geom_line() +
+    geom_ribbon(aes(ymin=conf.low, ymax=conf.high), alpha=.25)+
+  ylim(0,1)
+
+# Grade groups
+ggplot(tidy(KM_groups), aes(time, estimate, group = strata)) +
+    geom_line(aes(color = strata)) +
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .25)+
+  ylim(0,1)
 
 ```
 
