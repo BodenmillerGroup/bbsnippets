@@ -13,8 +13,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(survival)
 library(ggplot2)
+library(broom)
+library(dplyr)
 
-surv_dat = fread('~/Github/bbsnippets/data/survival_example_data.csv',header = T)
+surv_dat = fread('../../../data/survival_example_data.csv',header = TRUE)
 head(surv_dat)
 
 ```
@@ -40,13 +42,13 @@ http://www.sthda.com/english/wiki/survival-analysis-basics#censoring
 
 ```{r}
 # Censoring for overall survival (1 = event (death due to disease), 0 = censored)
-surv_dat$censoringOS = 0
-surv_dat$censoringOS[surv_dat$Patientstatus == 'death by primary disease'] = 1
+surv_dat[,censoringOS := 0]
+surv_dat[Patientstatus == 'death by primary disease',censoringOS := 1]
 
 # Censoring for disease free survival (1 = event (recurrence), 0 = censored)
-surv_dat$censoringDFS = 0
-surv_dat$censoringDFS[surv_dat$Patientstatus == 'alive w metastases'] = 1
-surv_dat$censoringDFS[surv_dat$OSmonth > surv_dat$DFSmonth] = 1 
+surv_dat[ ,censoringDFS := 0]
+surv_dat[ Patientstatus == 'alive w metastases',censoringDFS := 1]
+surv_dat[ OSmonth > DFSmonth, censoringDFS := 1]
 
 ```
 
@@ -57,13 +59,13 @@ With categorical covariates each level is considered a distinct group
 and the first level is used as reference.
 
 ```{r}
-#Set reference level for grade groups (first level)
-surv_dat$grade = factor(surv_dat$grade,levels = 1:3)
+# Set reference level for grade groups (first level)
+surv_dat[,grade := factor(grade,levels = 1:3)]
 
-#Calculate coxph model. The formula requires a standard survival object
-#built with the Surv function from the "survival" package. In the survival
-#object a plus behind the time indicates censoring.
-res = coxph(Surv(surv_dat$OSmonth, surv_dat$censoringOS) ~ grade , data =  surv_dat)
+# Calculate coxph model. The formula requires a standard survival object
+# built with the Surv function from the "survival" package. In the survival
+# object a plus behind the time indicates censoring.
+res = coxph(Surv(OSmonth, censoringOS) ~ grade , data =  surv_dat)
 summary(res)
 ```
 
@@ -82,30 +84,26 @@ http://www.sthda.com/english/wiki/cox-proportional-hazards-model
 
 # Plot hazard ratios
 ```{r}
-#Extract hazard ratios and confidence intervals from model output
-CI = confint(res)
-dt <- data.table(x = names(res$coefficients),
-                 HR = exp(res$coefficients),
-                 L = exp(CI[,1]),
-                 U = exp(CI[,2]))
 
-#Make sure hazard ratios are plotted in increasing order (only relevant for larger models)
-dt = dt[order(HR),]
-dt$x = factor(dt$x,levels = dt$x)
+# The tidy function from the broom package summarizes and formats the output of the coxph
+# function
+td_res = tidy(res, exponentiate = TRUE)
+print(td_res)
 
-#Association is significant if the CI of the hazard ratio does not include 1
-dt$sign = "non significant"
-dt$sign[dt$L < 1 & dt$U < 1] = "significant"
-dt$sign[dt$L > 1 & dt$U > 1] = "significant"
+# Make sure plot is ordered according to increasing HRs
+td_res = td_res %>% arrange(estimate) %>% mutate(term = factor(term,levels = term))
 
-#Visualize hazard ratios
-ggplot(dt, aes(x = x, y = HR, color = sign)) +
+# Visualize hazard ratios
+ggplot(td_res, aes(x = term, y = estimate,color =p.value < 0.05)) +
 geom_point(size = 4) +
-geom_errorbar(aes(ymax = U, ymin = L))+
+geom_errorbar(aes(ymax = conf.high, ymin = conf.low))+
 scale_color_manual(values = c('lightblue','red'))+
 coord_flip()+
 geom_hline(yintercept = 1,color = 'blue')+
 scale_y_continuous(trans='log')
+
+
+
 ```
 
 ```{r}

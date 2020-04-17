@@ -1,6 +1,7 @@
 ---
 title: "Kaplan Meier"
 output: html_document
+author: "Jana Fischer"
 ---
 
 ```{r setup, include=FALSE}
@@ -12,8 +13,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(survival)
 library(RColorBrewer)
+library(ggplot2)
+library(broom)
 
-surv_dat = fread('~/Github/bbsnippets/data/survival_example_data.csv',header = T)
+surv_dat = fread('../../../data/survival_example_data.csv',header = TRUE)
 head(surv_dat)
 
 ```
@@ -40,13 +43,13 @@ http://www.sthda.com/english/wiki/survival-analysis-basics#censoring
 
 ```{r}
 # Censoring for overall survival (1 = event (death due to disease), 0 = censored)
-surv_dat$censoringOS = 0
-surv_dat$censoringOS[surv_dat$Patientstatus == 'death by primary disease'] = 1
+surv_dat[,censoringOS := 0]
+surv_dat[Patientstatus == 'death by primary disease',censoringOS := 1]
 
 # Censoring for disease free survival (1 = event (recurrence), 0 = censored)
-surv_dat$censoringDFS = 0
-surv_dat$censoringDFS[surv_dat$Patientstatus == 'alive w metastases'] = 1
-surv_dat$censoringDFS[surv_dat$OSmonth > surv_dat$DFSmonth] = 1 
+surv_dat[ ,censoringDFS := 0]
+surv_dat[ Patientstatus == 'alive w metastases',censoringDFS := 1]
+surv_dat[ OSmonth > DFSmonth, censoringDFS := 1]
 
 
 # Build the standard survival object with the Surv function from the package
@@ -68,7 +71,7 @@ the Kaplan Meier estimates of probability of survival over time.
 KM_all <- survfit(SurvObj_OS ~ 1)
 
 # Compute survival curves for different groups of patients (here grade).
-surv_dat$grade = as.factor(surv_dat$grade)
+surv_dat[,grade := as.factor(grade)]
 KM_groups <- survfit(SurvObj_OS ~ surv_dat$grade)
 
 ```
@@ -99,18 +102,37 @@ and plot curve across all patients as a reference in each panel.
 par(mfrow=c(1,3))
 for (i in levels(surv_dat$grade)){
   
-  #Data corresponding to current grade
+  # Data corresponding to current grade
   cur_dat = subset(surv_dat, surv_dat$grade == i)
   SurvObj_cur <- Surv(cur_dat$OSmonth, cur_dat$censoringOS)
   KM_cur <- survfit(SurvObj_cur ~ 1)
   
-  #Current grade group in color
+  # Current grade group in color
   plot(KM_cur,mark.time = T,col = cols[as.numeric(i)],xlim=range(1:250),conf.int = T)
   par(new=TRUE)
-  #All patients curve in black
+  # All patients curve in black
   plot(KM_all,mark.time = T,col = "black",xlim=range(1:250),conf.int = T)
   legend("bottomleft",1,i,cols[as.numeric(i)], cex=3)
 }
+
+```
+
+# Plot survival curves with ggplot2
+
+Alternatively, use tidy from the broom package to summarize and format the output of survfit for
+direct use with ggplot2
+```{r}
+
+# Overall curve
+ggplot(tidy(KM_all), aes(time, estimate)) + geom_line() +
+    geom_ribbon(aes(ymin=conf.low, ymax=conf.high), alpha=.25)+
+  ylim(0,1)
+
+# Grade groups
+ggplot(tidy(KM_groups), aes(time, estimate, group = strata)) +
+    geom_line(aes(color = strata)) +
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .25)+
+  ylim(0,1)
 
 ```
 
