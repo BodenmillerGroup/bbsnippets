@@ -52,7 +52,6 @@ library(ggpointdensity) # for geom_pointdensity
 library(MASS) # for manual contours
 library(tidyverse) # For ggplot2 and co
 library(viridis) # Nice colormaps
-
 ```
 
 ```{r}
@@ -93,7 +92,7 @@ gaussians <- function(specs=list(c(1.5,0,1.0),c(-1.5,0,1.0)), num=100){
 
 ```
 
-This simulates 4 partially overlapping gaussians and samples 50'000 points each, so 250'000 total:
+This simulates 5 partially overlapping gaussians and samples 50'000 points each, so 250'000 total:
 
 ```{r}
 specs_5_pop <- list(c(2,2,0.02), c(2,-2,0.1), c(-2,-2,0.5), c(-2,2,1.0), c(0,0,3))
@@ -212,7 +211,7 @@ system.time({print(p)})
 
 ```
 
-Whenever bin2d is uese, also geom_hexbin can be used:
+Whenever bin2d is used, geom_hexbin works as well:
 
 ```{r}
 p <- ggplot(dists_shuffled, aes(x=x, y=y))+
@@ -634,8 +633,4 @@ That's it! Let me know on Github or Twitter if you have any comments/questions.
 
 ```{r}
 sessionInfo()
-```
-
-```{r}
-
 ```
