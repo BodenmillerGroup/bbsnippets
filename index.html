@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>bbSnippets</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+  <meta name="description" content="bbSnippets">
+  <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <link rel="stylesheet" href="//unpkg.com/docsify/lib/themes/vue.css">
+  <style>
+    .markdown-section {
+      max-width: 1048px;
+    }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+  window.$docsify = {
+    name: 'bbSnippets',
+    repo: 'BodenmillerGroup/bbsnippets',
+    loadSidebar: true,
+    coverpage: true,
+    copyCode: {
+      buttonText: 'Copy to clipboard',
+      errorText: 'Error',
+      successText: 'Copied',
+    },
+    search: {
+      paths: ['/', 'snippets/image_analysis/README.md', 'snippets/image_analysis/ilastik_projects/README.md', 'snippets/image_analysis/ometiff_javabridge/README.md', 'snippets/varia/README.md', 'snippets/varia/heatscatter_example/README.md', 'snippets/varia/traverse_hdf5/README.md', 'snippets/varia/CCLE_mRNA_expression_heatmaps/README.md', 'snippets/survival_analysis/README.md', 'snippets/survival_analysis/Coxph_model/README.md', 'snippets/survival_analysis/KaplanMeier_curves/README.md', 'snippets/imc/README.md', 'snippets/imc/Read_CPoutput_R/README.md', 'snippets/imc/slide_overview/README.md', 'snippets/imc/bbwidgets_imctools_example/README.md'],
+      depth: 4,
+    },
+  };
+</script>
+<script src="//unpkg.com/docsify/lib/docsify.min.js"></script>
+<script src="//unpkg.com/docsify/lib/plugins/search.min.js"></script>
+<script src="//unpkg.com/docsify-copy-code"></script>
+<script src="//unpkg.com/prismjs/components/prism-bash.min.js"></script>
+<script src="//unpkg.com/prismjs/components/prism-python.min.js"></script>
+<script src="//unpkg.com/prismjs/components/prism-r.min.js"></script>
+<script src="//unpkg.com/prismjs/components/prism-matlab.min.js"></script>
+<script src="//unpkg.com/prismjs/components/prism-sql.min.js"></script>
+<!-- PDFObject.js is a required dependency of this plugin -->
+<script src="//cdnjs.cloudflare.com/ajax/libs/pdfobject/2.1.1/pdfobject.min.js"></script>
+<script src="//unpkg.com/docsify-pdf-embed-plugin/src/docsify-pdf-embed.js"></script>
+</body>
+</html>
