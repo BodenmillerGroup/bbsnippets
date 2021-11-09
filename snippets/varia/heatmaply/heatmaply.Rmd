@@ -1,0 +1,240 @@
+---
+title: "heatmaply"
+author: "Nicolas Damond"
+date: "03/04/2020"
+output: html_document
+---
+
+# Use of the heatmaply package with SCE objects
+Explains how to generate an interactive heatmap from a `SingleCellExperiment` object
+Includes a `summarizeHeatmap` function that calculates the median counts by channel and 
+by cluster (or any other variable in `colData(sce)`).  
+For more information about heatmaply, see the
+[heatmaply vignette](https://cran.r-project.org/web/packages/heatmaply/vignettes/heatmaply.html) 
+and the original [heatmaply publication](https://doi.org/10.1093/bioinformatics/btx657).
+
+### Requirements
+- Packages: `SingleCellExperiment`, `heatmaply`, `data.table`.  
+- An SCE object with the channels as `rownames(sce)`.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "./")
+```
+
+## Load the librairies
+```{r librairies, message=FALSE}
+library(SingleCellExperiment)
+library(heatmaply)
+```
+
+## Load example SCE
+Contains a subset of the pancreas dataset
+```{r read-in-data}
+fn.sce <- file.path('..', '..', '..', 'data', 'pancreas_example_sce.rds')
+sce <- readRDS(fn.sce)
+sce
+```
+
+## Function to summarize the data
+Returns median counts by cluster and by channel. The arguments are the following:  
+`sce` = A SingleCellExperiment object.  
+`expr_values` = A string corresponding to an assay in the sce, should be in `assayNames(sce)`.  
+`cluster_by` = Name of the column containing the clusters.  
+`channels` = channels to include, should be in `rownames(sce)`. If `NULL`, all channels will be summarized.  
+`FUN` = c("median","mean") chose if the median or the mean should be returned (default:"median") (optional). 
+```{r summarizeHeatmap}
+summarizeHeatmap <- function(sce, expr_values, cluster_by, channels=NULL, FUN="median"){
+  require(data.table)
+
+  # Argument checks
+  if(is.null(expr_values) | !(expr_values %in% assayNames(sce))){
+    expr_values <- assayNames(sce)[1]
+    print(paste0("Warning: Assay type not provided or assay type not in 'assayNames(sce)', '", expr_values, "' used."))
+  }
+
+  if(is.null(channels)){
+    channels <- rownames(sce)
+  }
+
+  if(!all(channels %in% rownames(sce))){
+    stop("Channel names do not correspond to the rownames of the assay")
+  }
+
+  if(is.null(cluster_by)){
+    stop("Cluster column not provided")
+  }
+
+  if(!(cluster_by %in% colnames(colData(sce)))){
+    stop("The 'cluster_by' argument should correspond to a colData(sce) column")
+  }
+
+  if(length(cluster_by) > 1){
+    stop("'cluster_by' takes only one argument")
+  }
+  
+  if(length(expr_values) > 1){
+    stop("'expr_values' takes only one argument")
+  }
+
+  if(!(FUN %in% c("median", "mean"))){
+    stop("'FUN' takes either 'median' or 'mean' as an argument")
+  }
+  
+  # Convert the data to a melted format
+  dat <- as.data.table(t(assay(sce, expr_values)[channels,]))
+  dat[, id := colnames(sce)]
+  dat[, cluster := colData(sce)[, cluster_by]]
+  dat <- melt.data.table(dat, id.vars=c('id','cluster'), variable.name='channel', value.name=expr_values)
+
+  # Summarize the data
+  if(FUN == "median"){
+    dat.summary <- dat[, list(
+      summarized.val = median(get(expr_values)),
+      cellspercluster = .N),
+      by = c('channel', 'cluster')]
+  } else if (FUN == "mean"){
+    dat.summary <- dat[, list(
+      summarized.val = mean(get(expr_values)),
+      cellspercluster = .N),
+      by = c('channel', 'cluster')]
+  }
+  # Decast the summarized data and convert to a matrix
+  hm.cell <- dcast.data.table(dat.summary, formula='cluster ~ channel', value.var='summarized.val')
+  hm.clusters <- hm.cell$cluster
+  hm.cell <- as.matrix(hm.cell[, -1, with=FALSE])
+  
+  # Add rownames
+  rownames(hm.cell) <- hm.clusters
+
+  # Return the summarized values
+  return(as.matrix(hm.cell))
+}
+```
+
+## Run the `summarizeHeatmap` function
+```{r run-summarizeHeatmap, message=FALSE}
+# Select the relevant channels
+good.channels <- rownames(sce)[! rownames(sce) %in% c('H3', 'PD-1', 'cPARP', 'Ir191', 'Ir193')]
+
+hm <- summarizeHeatmap(sce,
+                       expr_values = 'counts',
+                       cluster = 'CellType',
+                       channels = good.channels,
+                       FUN = "mean")
+```
+
+## Expression heatmap
+Displays normalized, scaled or percentized counts per cluster and channel  
+Normalize: https://cran.r-project.org/web/packages/heatmaply/vignettes/heatmaply.html#normalize  
+Scale: https://cran.r-project.org/web/packages/heatmaply/vignettes/heatmaply.html#scale  
+Percentize: https://cran.r-project.org/web/packages/heatmaply/vignettes/heatmaply.html#percentize  
+```{r expression-heatmap-normalize}
+# Normalize
+heatmaply(heatmaply::normalize(hm))
+
+# Scale
+heatmaply(hm, scale="column")
+
+# Percentize
+heatmaply(heatmaply::percentize(hm))
+```
+
+# Using asinh-transformed counts
+```{r}
+# Summarize the data
+hm <- summarizeHeatmap(sce,
+                       expr_values = 'counts',
+                       cluster = 'CellType',
+                       channels = good.channels)
+
+# Caculate transformed counts
+hm.exprs <- asinh(hm / 1)
+
+# Plot the heatmap
+heatmaply(heatmaply::normalize(hm.exprs))
+```
+
+# Heatmap with other variables
+Any other variable in `colData(sce)` can be passed to `summarizeHeatmap`.  
+Example with T1D stage (`stage`).
+```{r}
+# Summarize the data
+hm.stages <- summarizeHeatmap(sce,
+                              expr_values = 'counts',
+                              cluster = 'stage',
+                              channels = good.channels,
+                              FUN = 'mean')
+
+# Plot the heatmap
+heatmaply(hm.stages, scale="column")
+```
+
+
+
+# Add row-side colors
+Here, row side colors are defined in function of the cell types and cell categories (defined in `colData(sce)$CellType` and `colData(sce)$CellCat`).
+```{r row-side-colors}
+# Get cell types and cell categories
+rsc <- unique(data.frame(`Cell type`= colData(sce)$CellType,
+                         `Cell category` = colData(sce)$CellCat))
+
+# Plot the heatmap
+heatmaply(heatmaply::normalize(hm), RowSideColors = rsc)
+```
+
+
+## Correlation heatmap
+Displays correlation between channels
+```{r correlation-heatmap}
+heatmaply_cor(cor(hm, method="pearson"))
+```
+
+## Correlation heatmap with point size corresponding to the p-value of the correlation test
+https://cran.r-project.org/web/packages/heatmaply/vignettes/heatmaply.html#correlation-heatmaps 
+```{r correlation-heatmap2}
+# Define the correlation method
+cor.method = "pearson"
+
+# Run the correlation test
+r <- cor(hm, method=cor.method)
+
+# Calculate p values
+cor.test.p <- function(x){
+    FUN <- function(x, y) cor.test(x, y, method=cor.method)[["p.value"]]
+    z <- outer(
+      colnames(x), 
+      colnames(x), 
+      Vectorize(function(i,j) FUN(x[,i], x[,j]))
+    )
+    dimnames(z) <- list(colnames(x), colnames(x))
+    z
+}
+p <- cor.test.p(hm)
+
+# Plot the heatmap
+heatmaply_cor(
+  r,
+  node_type = "scatter",
+  point_size_mat = -log10(p),
+  point_size_name = "-log10(p-value)",
+  label_names = c("x", "y", "Correlation")
+)
+```
+
+## Generate a static heatmap
+```{r dendrogram}
+ggheatmap(heatmaply::normalize(hm))
+```
+
+
+## Save the heatmap
+The `file` argument can be provided to save the heatmap as an html file
+```{r save-heatmap}
+# Define the name of the output html file
+fn.hm <- file.path('./', "saved-heatmap.html")
+
+# Save the heatmap to html
+heatmaply(heatmaply::normalize(hm), file=fn.hm)
+```
+
