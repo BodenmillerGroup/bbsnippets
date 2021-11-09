@@ -10,6 +10,7 @@ dependencies:
   - jupyterlab
   - leidenalg
   - matplotlib
+  - napari
   - numpy
   - opencv
   - pandas
