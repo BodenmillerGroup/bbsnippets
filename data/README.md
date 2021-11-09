@@ -2,8 +2,8 @@
 
 Folder to collect small example data sets used in the snippets.
 
-
 ### pancreas_example_sce.rds
+
 `SingleCellExperiment` object containing a subset of the [pancreas dataset](https://doi.org/10.1016/j.cmet.2018.11.014).  
 Contains single cell data and metadata for three images from three different donors.
 - The `counts` **assay** represents raw IMC counts (spillover-compensated).
@@ -26,3 +26,22 @@ Contains single cell data and metadata for three images from three different don
   - `channel`: channel number (from 1 to 38).
   - `metal`: metal tag (format: "In113").
   - `target`: short name of the target protein.
+
+### survival_example_data.csv
+
+The survival example data set contains overall and disease free 
+survival information and the pathology grading of 285 breast cancer 
+patients.The pathology grades split breast cancer patients into 3 
+groups associated with distinct outcomes.
+
+Column description:  
+PID: patient identifier  
+grade: tumor pathology grade  
+OSmonth: overall suvival from time of diagnosis [months]  
+DFSmonth: disease free survival from time of diagnosis [months]  
+Patientstatus: life/death status   
+"death by primary disease" = death due to disease  
+"death" = disease unrelated death  
+"alive" = alive at given survival time  
+"alive w metastases" = alive with metasatses at given survival time  
+

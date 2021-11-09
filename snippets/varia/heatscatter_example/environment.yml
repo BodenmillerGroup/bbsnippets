@@ -1,0 +1,17 @@
+name: vz-varia
+channels:
+  - r
+  - bioconda
+  - conda-forge
+  - defaults
+  - ccb-sb
+dependencies:
+  - icu=58
+  - r-data.table
+  - r-devtools
+  - r-ggplot2
+  - r-irkernel
+  - r-ggpointdensity
+  - r-tidyverse
+  - r-ggrastr
+  - r-viridis
