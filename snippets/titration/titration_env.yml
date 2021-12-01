@@ -6,6 +6,7 @@ dependencies:
   - anndata
   - ipython
   - ipykernel
+  - ipympl
   - ipywidgets
   - jupyterlab
   - leidenalg
