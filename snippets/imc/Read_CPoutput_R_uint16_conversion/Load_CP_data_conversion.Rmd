@@ -1,0 +1,102 @@
+---
+title: "Load CP output"
+author: "Jana Fischer, adapted from Vito Zanotelli, adapted for new IMCSegmentationPipeline (post-commit 31ef9ab) by Tobias Hoch"
+date: "8/06/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load libraries
+```{r}
+library(data.table)
+library(stringr)
+```
+
+
+#Load CP single-cell data
+```{r}
+#Load single-cell data from CP
+cells = fread('/mnt/bbvolume/server_homes/thoch/Data/IMC/20190723_measurements/ImcSegmentationPipeline/output/cpout/cell.csv')
+
+#Melt data table
+cp_measurevars = c('MeanIntensity')
+cp_idvars = c('ImageNumber', 'ObjectNumber')
+measurevar = colnames(cells)[grep(paste(paste0(cp_measurevars,'_'),collapse='|'), colnames(cells), ignore.case=TRUE)]
+cells_long = melt.data.table(cells, id.vars =cp_idvars , variable.factor = F, measure.vars = measurevar)
+
+#Extract info from variable column
+cells_long[,':='(
+  measuretype=bbRtools::getInfoFromFileList(.BY,sep = '_', strPos = 1),
+  measure=bbRtools::getInfoFromFileList(.BY,sep = '_', strPos = 2),
+  stack=bbRtools::getInfoFromFileList(.BY,sep = '_', strPos = 3),
+  channel=as.numeric(bbRtools::getInfoFromFileList(.BY,sep = '_', strPos = 4, censorStr = 'c'))
+  ), by=variable]
+
+```
+
+#Load panel and clean
+```{r}
+panel = fread('/mnt/bbvolume/server_homes/thoch/Data/IMC/20190723_measurements/ImcSegmentationPipeline/config/20190715_Silver_Tonsil.csv',header = T)
+
+#Extract metal mass
+panel$`Metal Number` = str_extract(panel$`Metal Tag`, "[0-9]+")
+
+#order according to metal mass
+panel = panel[order(panel$`Metal Number`),]
+
+#assign channel number, matching with the measured channles in cellprofiler
+#the channel number should be double-checked with the channel order in the _full.csv file in the tiff folder to see if the order matches (e.g. Y89 can cause a mismatch)
+panel$channel = c(1:nrow(panel))
+```
+
+#Load CP image metadata
+```{r}
+image_meta = fread('/mnt/bbvolume/server_homes/thoch/Data/IMC/20190723_measurements/ImcSegmentationPipeline/output/cpout/Image.csv',header = T,stringsAsFactors = F)
+cols = c('FileName_FullStack','Width_FullStack','Height_FullStack','ImageNumber')
+image_meta_short = subset(image_meta, ,cols)
+image_meta_short[,core := bbRtools::getInfoFromFileList(FileName_FullStack,sep = '_', strPos = 1:11)]
+
+#Calculate image area
+image_meta_short[,area := Width_FullStack * Height_FullStack]
+
+image_meta = NULL
+
+```
+
+#Single-cell data
+```{r}
+#Merge single-cell data with image metadata to have core names in single-cell data
+idcols = colnames(cells_long)[!colnames(cells_long) %in% c('measure', 'value', 'variable')]
+dat = dcast.data.table(cells_long, formula = paste0(paste(idcols, collapse = '+'), '~', 'measure'), value.var = 'value')
+dat = merge(dat, image_meta_short[,list(ImageNumber, core)], by = 'ImageNumber')
+
+#Create unique single-cell id
+dat[, id := paste(.BY,collapse =  "_"), by=.(core,ObjectNumber)]
+
+#Merge single-cell data with panel to get metal tags and channel names for single-cell data
+dat = merge(dat, panel[,list(channel, `Metal Tag`, Target)], by='channel')
+names(dat)[names(dat) == 'Metal Tag'] = 'Metal_Tag'
+dat$channel = NULL
+
+#uint16 reconversion
+dat$MeanIntensity = dat$MeanIntensity * (2**16)
+
+#Convert table back to wide format if necessary
+#change value.var if you to keep the non-asinh-transformed mean intensity value 
+dat = dcast.data.table(dat,'core + id + ObjectNumber ~ Target',value.var = 'MeanIntensity',fun.aggregate = mean)
+
+cells = NULL
+cells_long = NULL
+```
+
+# Save single-cell dat table
+```{r}
+saveRDS(dat, file = "dat.rds")
+```
+
+```{r}
+sessionInfo()
+```
