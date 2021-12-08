@@ -18,15 +18,15 @@ At the end of `steinbock` preprocessing, the data have to be exported in the `An
 
 For reference, the following `steinbock` command can be used (adjust the path and steinbock version):
 ```
-$ alias steinbock="docker run -v /path/to/your/data:/data -v /tmp/.X11-unix:/tmp/.X11-unix -v ~/.Xauthority:/home/steinbock/.Xauthority:ro -u $(id -u):$(id -g) -e DISPLAY ghcr.io/bodenmillergroup/steinbock:latest"
+$ alias steinbock="docker run -v /path/to/your/data:/data -v /tmp/.X11-unix:/tmp/.X11-unix -v ~/.Xauthority:/home/steinbock/.Xauthority:ro -u $(id -u):$(id -g) -e DISPLAY ghcr.io/bodenmillergroup/steinbock:0.10.2"
 $ steinbock preprocess imc images --hpf 50
 $ steinbock segment deepcell --minmax
 $ steinbock measure intensities
 $ steinbock measure regionprops
-$ steinbock export anndata --x intensities --obs regionprops
+$ steinbock export anndata --intensities intensities --data regionprops
 ```
 
-Full `steinbock` documentation can be found here: https://bodenmillergroup.github.io/steinbock/latest.  
+Full `steinbock` documentation can be found here: https://bodenmillergroup.github.io/steinbock/v0.10.2/.  
 
 ### Script usage
 This should be run downstream of `steinbock` script performs the following tasks:
