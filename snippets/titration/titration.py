@@ -476,8 +476,7 @@ ad.obs.loc[ad.obs[cluster_name].isin(clusters_pos), 'clustering'] = 'Positive'
 
 # Count cell numbers
 def count_cells(method, category, _conc):
-    cell_nb = len(ad.obs[(ad.obs[method] == category) & (ad.obs['concentration'] == _conc)].index)
-    return(cell_nb)
+    return ((ad.obs[method] == category) & (ad.obs['concentration'] == _conc)).sum()
 
 cell_numbers = []
 for i,conc in enumerate(concentrations):
