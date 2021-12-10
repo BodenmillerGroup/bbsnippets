@@ -411,8 +411,7 @@ labels = cluster_distrib[cluster_name].unique()
 conc_list = []
 
 for i,conc in enumerate(concentrations):
-    conc_list.append(np.array(cluster_distrib[
-        cluster_distrib['concentration'].astype(int) == int(concentrations[i])]['fraction']))
+    conc_list.append(cluster_distrib.loc[cluster_distrib["concentration"].astype(int) == int(conc), "fraction"].values)
 
     if i == 0:
         ax1.bar(labels, conc_list[i], label='conc' + str(concentrations[i]))
