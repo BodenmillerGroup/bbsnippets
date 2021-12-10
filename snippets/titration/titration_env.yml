@@ -9,6 +9,7 @@ dependencies:
   - ipympl
   - ipywidgets
   - jupyterlab
+  - jupytext
   - leidenalg
   - matplotlib
   - napari
