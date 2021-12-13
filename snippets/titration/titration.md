@@ -417,8 +417,8 @@ labels = cluster_distrib[cluster_name].unique()
 conc_list = []
 
 for i,conc in enumerate(concentrations):
-    conc_list.append(np.array(cluster_distrib[
-        cluster_distrib['concentration'].astype(int) == int(concentrations[i])]['fraction']))
+    conc_list.append(cluster_distrib.loc[cluster_distrib["concentration"].astype(int) == int(conc),
+                                         "fraction"].values)
 
     if i == 0:
         ax1.bar(labels, conc_list[i], label='conc' + str(concentrations[i]))
@@ -483,8 +483,7 @@ ad.obs.loc[ad.obs[cluster_name].isin(clusters_pos), 'clustering'] = 'Positive'
 
 # Count cell numbers
 def count_cells(method, category, _conc):
-    cell_nb = len(ad.obs[(ad.obs[method] == category) & (ad.obs['concentration'] == _conc)].index)
-    return(cell_nb)
+    return ((ad.obs[method] == category) & (ad.obs['concentration'] == _conc)).sum()
 
 cell_numbers = []
 for i,conc in enumerate(concentrations):
@@ -574,10 +573,6 @@ g.map(sns.kdeplot, cur_marker,
 for item, ax in g.axes_dict.items():
     ax.axvline(x = sel_values.loc[item, 'bottom'], color='blue')
     ax.axvline(x = sel_values.loc[item, 'top'], color='red')
-
-def annotate(data, **kws):
-    ax = plt.gca()
-g.map_dataframe(annotate)
 ```
 
 ### Identify the positive and negative cells
@@ -658,10 +653,10 @@ crop_height = 500
 ```
 
 __Select one image to display per concentration__  
-By default, random images are selected. If you want to display specific image select them below, or uncomment the `rng = np.random.default_rng(123)` line to always select the same images.
+By default, random images are selected. If you want to display specific image select them below, or add a seed to "default_rng", e.g.: `rng = np.random.default_rng(1234)` to always select the same images.
 
 ```python
-# rng = np.random.default_rng(123)
+rng = np.random.default_rng()
 w_images = []
 
 for i,conc in enumerate(concentrations):
@@ -743,25 +738,25 @@ Retrieve the positive and negative cells and create a mask overlay.
 ```python
 method_column = w_method.value
 
-positive_cells = numpy.empty(len(concentrations)).tolist()
-intermediate_cells = numpy.empty(len(concentrations)).tolist()
-negative_cells = numpy.empty(len(concentrations)).tolist()
-mask_overlays = [0] * len(concentrations)
+positive_cells = []
+intermediate_cells = []
+negative_cells = []
+mask_overlays = []
 
 for i, conc in enumerate(concentrations):
     # Retrieve the ids of positive and negative cells
     ad_subset = ad[(ad.obs['concentration'] == conc) & (ad.obs['image_id'] == selected_images[i]),
                    ad.var_names == cur_marker]
-    positive_cells[i] = ad_subset[ad_subset.obs[method_column] == 'Positive'].obs['object_id']
-    intermediate_cells[i] = ad_subset[ad_subset.obs[method_column] == 'Inter'].obs['object_id']
-    negative_cells[i] = ad_subset[ad_subset.obs[method_column] == 'Negative'].obs['object_id']
+    positive_cells.append(ad_subset[ad_subset.obs[method_column] == 'Positive'].obs['object_id'])
+    intermediate_cells.append(ad_subset[ad_subset.obs[method_column] == 'Inter'].obs['object_id'])
+    negative_cells.append(ad_subset[ad_subset.obs[method_column] == 'Negative'].obs['object_id'])
     
     # Mask the cells
     pos = np.array(positive_cells[i]).astype('int')
     inter = np.array(intermediate_cells[i]).astype('int')
     neg = np.array(negative_cells[i]).astype('int')
 
-    mask_overlays[i] = np.empty(shape(mask_list[i]), dtype=int)
+    mask_overlays.append(np.empty(shape(mask_list[i]), dtype=int))
     mask_overlays[i].fill(0)
     mask_overlays[i][np.isin(mask_list[i], pos)] = 3
     mask_overlays[i][np.isin(mask_list[i], inter)] = 2
@@ -845,13 +840,13 @@ Positive cells are shown in white and negative cells in black on the mask
 __Retrieve positive and negative cells names__
 
 ```python
-positive_cells = numpy.empty(len(concentrations)).tolist()
-negative_cells = numpy.empty(len(concentrations)).tolist()
+positive_cells = []
+negative_cells = []
 
 for j, conc in enumerate(concentrations):
     ad_subset = ad[ad.obs['concentration'] == conc, ad.var_names == cur_marker]
-    positive_cells[j] = ad_subset[ad_subset.obs[w_method.value] == 'Positive'].obs_names
-    negative_cells[j] = ad_subset[ad_subset.obs[w_method.value] == 'Negative'].obs_names
+    positive_cells.append(ad_subset[ad_subset.obs[w_method.value] == 'Positive'].obs_names)
+    negative_cells.append(ad_subset[ad_subset.obs[w_method.value] == 'Negative'].obs_names)
 ```
 
 __Calculate average expression levels of positive and negative cells__   
