@@ -37,7 +37,6 @@ from ipywidgets import GridspecLayout
 ```
 
 # Introduction
-
 ### Goal
 __The goal of this script is to facilitate antibody titration in IMC__
 
