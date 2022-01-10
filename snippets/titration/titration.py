@@ -942,12 +942,29 @@ titration_results.loc[cur_marker, 'selected_dilution'] = final_concentration
 titration_results
 
 # %% [markdown]
+# **Export detailed titration results**  
+# `csv` file containing the signal, noise and signal-to-noise ratio for all markers adn concentrations
+
+# %%
+titration_details_csv = data_path / ('titration_details.csv')
+
+if Path.exists(titration_details_csv) and Path.is_file(titration_details_csv):
+    titration_details = pd.read_csv(titration_details_csv)
+    titration_details = pd.DataFrame.merge(titration_details, results,
+                                           on=['marker', 'concentration', 'signal', 'noise', 'SignalToNoise'])
+else:
+    titration_details = results
+    titration_details.reset_index(drop=True, inplace=True)
+titration_details
+
+# %% [markdown]
 # ### Export the results
 #
 # When the process has been repeated for all the markers that need to be titered, the results can exported.  
-# The results are exported as `titration.csv` to the steinbock output directory (path defined at the beginning of this script). 
+# The results are exported as `titration.csv` and `titration_details.csv` to the steinbock output directory (path defined at the beginning of this script). 
 
 # %%
-titration_results.to_csv((data_path / 'titration.csv'), index=False)
+titration_results.to_csv((data_path / 'titration.csv'), index=True)
+titration_details.to_csv(titration_details_csv, index=False)
 
 # %%
