@@ -229,6 +229,7 @@ ad.obs['concentration'] = ad.obs['concentration'].astype('double')
 
 # %%
 concentrations = np.unique(ad.obs['concentration'])
+ad.uns['concentrations'] = concentrations
 print('Relative concentrations used = ', concentrations)
 
 # %% [markdown]
@@ -309,6 +310,7 @@ sc.pl.umap(ad, layer='exprs', color=ad.var_names, gene_symbols = ad.var_names, f
 # %%
 clustering_resolution = 1.5
 cluster_name = 'leiden' + str(clustering_resolution)
+ad.uns['cluster_name'] = cluster_name
 sc.tl.leiden(ad, resolution=clustering_resolution, key_added=cluster_name)
 ad.obs[cluster_name] = ad.obs[cluster_name].str.zfill(2).astype('category')
 
@@ -333,15 +335,6 @@ sc.pl.matrixplot(ad, ad.var_names, groupby=cluster_name, layer='exprs',
                  standard_scale = 'var', dendrogram=True)
 
 # %% [markdown]
-# ### Calculate concentration distribution by cluster
-
-# %% tags=[]
-cluster_distrib = ad.obs.groupby(['concentration', cluster_name]).size().to_frame('cellspercluster').reset_index()
-cluster_total = ad.obs.groupby([cluster_name]).size().to_frame('totalcells').reset_index()
-cluster_distrib = pd.merge(cluster_distrib, cluster_total, on=cluster_name)
-cluster_distrib['fraction'] = cluster_distrib['cellspercluster'] / cluster_distrib['totalcells']
-
-# %% [markdown]
 # ## Write / read the AnnData object
 # Execute only if needed
 
@@ -357,6 +350,10 @@ cluster_distrib['fraction'] = cluster_distrib['cellspercluster'] / cluster_distr
 
 # # Print-out the AnnData object
 # ad
+
+# # Recover variables from AnnData object unstructured observations
+# concentrations = ad.uns['concentrations']
+# cluster_name = ad.uns['cluster_name']
 
 # %% [markdown] tags=[]
 # # 4. Identify positive and negative cells
@@ -385,6 +382,15 @@ print("The current marker is:", cur_marker)
 
 # %% [markdown] tags=[]
 # ## 4.1 Select the highest- and lowest-expressing clusters
+# ### Calculate concentration distribution by cluster
+
+# %% tags=[]
+cluster_distrib = ad.obs.groupby(['concentration', cluster_name]).size().to_frame('cellspercluster').reset_index()
+cluster_total = ad.obs.groupby([cluster_name]).size().to_frame('totalcells').reset_index()
+cluster_distrib = pd.merge(cluster_distrib, cluster_total, on=cluster_name)
+cluster_distrib['fraction'] = cluster_distrib['cellspercluster'] / cluster_distrib['totalcells']
+
+# %% [markdown]
 # ### Plot the clusters by expression level
 # __Calculate the mean expression level for the current marker__
 
@@ -891,8 +897,9 @@ popt, _ = curve_fit(polynomial_curve, concentrations, results['SignalToNoise'])
 # popt = numpy.polyfit(concentrations, results['SignalToNoise'], deg=2)
 
 p1, p2, p3 = popt
-optimal_concentration = - p2 / (2 * p1)
-print("Optimal concentration:", optimal_concentration)
+if (p1 <= 0):
+    optimal_concentration = - p2 / (2 * p1)
+    print("Optimal concentration:", round(optimal_concentration,2))
 
 # %% [markdown]
 # ### Plot the results
@@ -911,7 +918,8 @@ xlinspace = np.linspace(concentrations[0], concentrations[-1], 100)
 
 axs[1].plot(concentrations, results['SignalToNoise'], 'bo')
 axs[1].plot(xlinspace, polynomial_curve(xlinspace, *popt))
-axs[1].axvline(x=optimal_concentration, color='g', ls = '--')
+if (p1 <= 0):
+    axs[1].axvline(x=optimal_concentration, color='g', ls = '--')
 axs[1].set(title="Signal-to-noise ratio", xlabel='concentration', ylabel="Signal-to-noise ratio")
 
 # %% [markdown]
@@ -924,7 +932,12 @@ axs[1].set(title="Signal-to-noise ratio", xlabel='concentration', ylabel="Signal
 # ***Note: it is recommended to check this value and modify it if needed***
 
 # %%
-final_concentration =  round(optimal_concentration, 2)
+if (p1 >= 0):
+    print("No maximum found on the titration curve, please select the value manually")
+    final_concentration = 1000
+else:
+    final_concentration =  round(optimal_concentration, 2)
+    
 print("The chosen concentration for marker", cur_marker, "is", final_concentration)
 
 # %% [markdown]
@@ -960,6 +973,7 @@ results.set_index('marker', inplace = True)
 
 if Path.exists(titration_details_csv) and Path.is_file(titration_details_csv):
     titration_details = pd.read_csv(titration_details_csv)
+    titration_details.set_index('marker', inplace = True)
     titration_details = pd.concat([titration_details, results])
     
 else:
