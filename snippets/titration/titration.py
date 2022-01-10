@@ -770,15 +770,15 @@ brightness = 20
 transparency = 0.3
 
 # Display images
-fig, axs = plt.subplots(2, len(concentrations), figsize=(25, 25))
+fig, axs = plt.subplots(len(concentrations), 2, figsize=(50, 50))
 
 for i, conc in enumerate(concentrations):
     # Images
     cur_image = cv2.convertScaleAbs(image_list[i], alpha=brightness, beta=0)
     cur_image = cur_image[crop_mask[i][0]:crop_mask[i][1], crop_mask[i][2]:crop_mask[i][3]]
-    axs[0,i].imshow(cur_image, cmap=plt.cm.viridis)
-    axs[0,i].set_title("Concentration =" + str(conc))
-    axs[0,i].axis('off')
+    axs[i,0].imshow(cur_image, cmap=plt.cm.viridis)
+    axs[i,0].set_title("Concentration =" + str(conc))
+    axs[i,0].axis('off')
 
     # Image-Mask overlay
     overlay = cur_image.copy()
@@ -787,9 +787,9 @@ for i, conc in enumerate(concentrations):
     cur_mask = cur_mask[crop_mask[i][0]:crop_mask[i][1], crop_mask[i][2]:crop_mask[i][3]]
     overlay = skimage.color.label2rgb(cur_mask, overlay, alpha=transparency, bg_label=0,
                                      colors=['blue','yellow','red'])
-    axs[1,i].imshow((overlay*255).astype('uint8'))
-    axs[1,i].set_title("Concentration =" + str(conc))
-    axs[1,i].axis('off')
+    axs[i,1].imshow((overlay*255).astype('uint8'))
+    axs[i,1].set_title("Concentration =" + str(conc))
+    axs[i,1].axis('off')
     
 plt.show()
 
