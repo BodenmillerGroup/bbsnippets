@@ -399,6 +399,11 @@ mean_exprs = mean.sort_values(by=cur_marker)
 cluster_distrib[cluster_name] = pd.Categorical(cluster_distrib[cluster_name], categories=array(mean_exprs.index), ordered=True)
 cluster_distrib.sort_values(cluster_name, inplace=True)
 
+# Function to count cell numbers
+def count_cells(method, category, _conc):
+    return ((ad.obs[method] == category) & (ad.obs['concentration'] == _conc)).sum()
+
+
 # %% [markdown]
 # __Plot the cluster distribution by concentration + Plot the clusters by increasing expression level__
 
@@ -471,10 +476,6 @@ clusters_pos = np.array(w_pos.value)
 ad.obs.loc[:,('clustering')] = 'Inter'
 ad.obs.loc[ad.obs[cluster_name].isin(clusters_neg), 'clustering'] = 'Negative'
 ad.obs.loc[ad.obs[cluster_name].isin(clusters_pos), 'clustering'] = 'Positive'
-
-# Count cell numbers
-def count_cells(method, category, _conc):
-    return ((ad.obs[method] == category) & (ad.obs['concentration'] == _conc)).sum()
 
 cell_numbers = []
 for i,conc in enumerate(concentrations):
