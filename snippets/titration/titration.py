@@ -910,7 +910,7 @@ cur_results = results[results['marker'] == cur_marker]
 xlinspace = np.linspace(concentrations[0], concentrations[-1], 100)
 
 axs[1].plot(concentrations, results['SignalToNoise'], 'bo')
-axs[1].plot(xnew, polynomial_curve(xlinspace, *popt))
+axs[1].plot(xlinspace, polynomial_curve(xlinspace, *popt))
 axs[1].axvline(x=optimal_concentration, color='g', ls = '--')
 axs[1].set(title="Signal-to-noise ratio", xlabel='concentration', ylabel="Signal-to-noise ratio")
 
@@ -937,8 +937,16 @@ print("The chosen concentration for marker", cur_marker, "is", final_concentrati
 # Note that the values are based on the relative concentrations or dilutions indicated in the mcd file names (or ROI description). The exported numbers ___do not___ represent absolute antibody concentrations.
 
 # %%
-titration_results = ad.var.loc[:,('name', 'channel')]
-titration_results['selected_dilution'] = None
+titration_results_csv = data_path / ('titration.csv')
+
+if Path.exists(titration_results_csv) and Path.is_file(titration_results_csv):
+    titration_results = pd.read_csv(titration_results_csv)
+
+else:
+    titration_results = pd.DataFrame(ad.var.loc[:,('channel')], ad.var.index)
+    titration_results['selected_dilution'] = None
+    
+titration_results.set_index('name', inplace = True)
 titration_results.loc[cur_marker, 'selected_dilution'] = final_concentration
 titration_results
 
@@ -948,14 +956,14 @@ titration_results
 
 # %%
 titration_details_csv = data_path / ('titration_details.csv')
+results.set_index('marker', inplace = True)
 
 if Path.exists(titration_details_csv) and Path.is_file(titration_details_csv):
     titration_details = pd.read_csv(titration_details_csv)
-    titration_details = pd.DataFrame.merge(titration_details, results,
-                                           on=['marker', 'concentration', 'signal', 'noise', 'SignalToNoise'])
+    titration_details = pd.concat([titration_details, results])
+    
 else:
     titration_details = results
-    titration_details.reset_index(drop=True, inplace=True)
 titration_details
 
 # %% [markdown]
@@ -965,7 +973,7 @@ titration_details
 # The results are exported as `titration.csv` and `titration_details.csv` to the steinbock output directory (path defined at the beginning of this script). 
 
 # %%
-titration_results.to_csv((data_path / 'titration.csv'), index=True)
-titration_details.to_csv(titration_details_csv, index=False)
+titration_results.to_csv(titration_results_csv, index=True)
+titration_details.to_csv(titration_details_csv, index=True)
 
 # %%
