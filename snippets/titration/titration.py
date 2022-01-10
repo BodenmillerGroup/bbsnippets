@@ -33,6 +33,7 @@ import cv2
 from pathlib import Path
 from skimage import exposure
 from ipywidgets import GridspecLayout
+from scipy.optimize import curve_fit
 
 # %% [markdown]
 # # Introduction
@@ -874,26 +875,43 @@ results['concentration'] = np.array(results['concentration'], dtype='double')
 # Transform the dataset
 results_long = results.melt(id_vars = ('marker', 'concentration'), var_name='type', value_name='meanExpr')
 
+
+# %% [markdown]
+# **Calculate optimal concentration**  
+# Fit polynomial curve and calculate concentration that maximize signal-to-noise ratio
+
+# %%
+def polynomial_curve(x, a, b, c):
+    return a * pow(x,2) + b * pow(x,1) + c 
+
+popt, _ = curve_fit(polynomial_curve, concentrations, results['SignalToNoise'])
+
+# Alternative:
+# popt = numpy.polyfit(concentrations, results['SignalToNoise'], deg=2)
+
+p1, p2, p3 = popt
+optimal_concentration = - p2 / (2 * p1)
+print("Optimal concentration:", optimal_concentration)
+
 # %% [markdown]
 # ### Plot the results
 
 # %% tags=[]
-figsize(7,7)
-g1 = sns.pointplot(
+fig, axs = plt.subplots(2, figsize=(7, 14))
+sns.pointplot(
     data=results_long[(results_long['type'].isin(['signal','noise'])) &
                       (results_long['marker'] == cur_marker)],
-    x='concentration', y='meanExpr', hue='type', style='type'
+    x='concentration', y='meanExpr', hue='type', style='type', ax=axs[0]
 )
-g1.set(title="Signal and noise", ylabel="Mean expression level")
+axs[0].set(title="Signal and noise", ylabel="Mean expression level")
 
 cur_results = results[results['marker'] == cur_marker]
-g2 = sns.lmplot(
-    data = cur_results,
-    x='concentration', y='SignalToNoise', col='marker',
-    order=2, ci=None, scatter_kws={"s": 100}
-)
-g2.set(title="Signal-to-noise ratio",
-       ylim=(0, 1.5 * math.ceil(max(cur_results['SignalToNoise']))))
+xlinspace = np.linspace(concentrations[0], concentrations[-1], 100)
+
+axs[1].plot(concentrations, results['SignalToNoise'], 'bo')
+axs[1].plot(xnew, polynomial_curve(xlinspace, *popt))
+axs[1].axvline(x=optimal_concentration, color='g', ls = '--')
+axs[1].set(title="Signal-to-noise ratio", xlabel='concentration', ylabel="Signal-to-noise ratio")
 
 # %% [markdown]
 # # 7. Aggregate and export data
@@ -901,12 +919,11 @@ g2.set(title="Signal-to-noise ratio",
 #
 # ### Define relative concentration for the current marker
 #
-# Based on the data above, enter the ideal dilution for the current marker.  
+# The optimal concentration calculated above for the curent marker is entered here.  
+# ***Note: it is recommended to check this value and modify it if needed***
 
 # %%
-final_concentration = 3.0
-
-# %%
+final_concentration =  round(optimal_concentration, 2)
 print("The chosen concentration for marker", cur_marker, "is", final_concentration)
 
 # %% [markdown]
