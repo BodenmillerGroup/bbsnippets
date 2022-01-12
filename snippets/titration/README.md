@@ -34,9 +34,11 @@ import cv2
 from pathlib import Path
 from skimage import exposure
 from ipywidgets import GridspecLayout
+from scipy.optimize import curve_fit
 ```
 
 # Introduction
+
 ### Goal
 __The goal of this script is to facilitate antibody titration in IMC__
 
@@ -201,7 +203,7 @@ elif Path.is_file(anndata_object):
     ad.obs['image_id'] = ad.obs['image'].str.replace(img_extension, '', regex=True)
     ad.obs['object_id'] = ad.obs_names
     ad.obs['object_id'] = ad.obs['object_id'].str.split(
-        r'(?P<Object>[A-Za-z]{6}) (?P<object_id>[0-9]{1,4})', expand=True)[2]
+        r'(?P<Object>[A-Za-z]+) (?P<object_id>[0-9]+)', expand=True)[2]
     
     imgName_values = ad.obs['image_id'].str.split(mcdName_separator, expand=True)
     
@@ -228,6 +230,7 @@ __Check that the correct concentrations were extracted from the parsed names__
 
 ```python
 concentrations = np.unique(ad.obs['concentration'])
+ad.uns['concentrations'] = concentrations
 print('Relative concentrations used = ', concentrations)
 ```
 
@@ -312,6 +315,7 @@ __Leiden community detection__
 ```python
 clustering_resolution = 1.5
 cluster_name = 'leiden' + str(clustering_resolution)
+ad.uns['cluster_name'] = cluster_name
 sc.tl.leiden(ad, resolution=clustering_resolution, key_added=cluster_name)
 ad.obs[cluster_name] = ad.obs[cluster_name].str.zfill(2).astype('category')
 ```
@@ -336,15 +340,6 @@ sc.pl.matrixplot(ad, ad.var_names, groupby=cluster_name, layer='exprs',
                  standard_scale = 'var', dendrogram=True)
 ```
 
-### Calculate concentration distribution by cluster
-
-```python tags=[]
-cluster_distrib = ad.obs.groupby(['concentration', cluster_name]).size().to_frame('cellspercluster').reset_index()
-cluster_total = ad.obs.groupby([cluster_name]).size().to_frame('totalcells').reset_index()
-cluster_distrib = pd.merge(cluster_distrib, cluster_total, on=cluster_name)
-cluster_distrib['fraction'] = cluster_distrib['cellspercluster'] / cluster_distrib['totalcells']
-```
-
 ## Write / read the AnnData object
 Execute only if needed
 
@@ -360,6 +355,10 @@ Execute only if needed
 
 # # Print-out the AnnData object
 # ad
+
+# # Recover variables from AnnData object unstructured observations
+# concentrations = ad.uns['concentrations']
+# cluster_name = ad.uns['cluster_name']
 ```
 
 <!-- #region tags=[] -->
@@ -392,9 +391,18 @@ print("The current marker is:", cur_marker)
 
 <!-- #region tags=[] -->
 ## 4.1 Select the highest- and lowest-expressing clusters
+### Calculate concentration distribution by cluster
+<!-- #endregion -->
+
+```python tags=[]
+cluster_distrib = ad.obs.groupby(['concentration', cluster_name]).size().to_frame('cellspercluster').reset_index()
+cluster_total = ad.obs.groupby([cluster_name]).size().to_frame('totalcells').reset_index()
+cluster_distrib = pd.merge(cluster_distrib, cluster_total, on=cluster_name)
+cluster_distrib['fraction'] = cluster_distrib['cellspercluster'] / cluster_distrib['totalcells']
+```
+
 ### Plot the clusters by expression level
 __Calculate the mean expression level for the current marker__
-<!-- #endregion -->
 
 ```python
 # Calculate mean expression
@@ -406,6 +414,10 @@ mean_exprs = mean.sort_values(by=cur_marker)
 # Order the cluster distribution by expression level
 cluster_distrib[cluster_name] = pd.Categorical(cluster_distrib[cluster_name], categories=array(mean_exprs.index), ordered=True)
 cluster_distrib.sort_values(cluster_name, inplace=True)
+
+# Function to count cell numbers
+def count_cells(method, category, _conc):
+    return ((ad.obs[method] == category) & (ad.obs['concentration'] == _conc)).sum()
 ```
 
 __Plot the cluster distribution by concentration + Plot the clusters by increasing expression level__
@@ -480,10 +492,6 @@ ad.obs.loc[:,('clustering')] = 'Inter'
 ad.obs.loc[ad.obs[cluster_name].isin(clusters_neg), 'clustering'] = 'Negative'
 ad.obs.loc[ad.obs[cluster_name].isin(clusters_pos), 'clustering'] = 'Positive'
 
-# Count cell numbers
-def count_cells(method, category, _conc):
-    return ((ad.obs[method] == category) & (ad.obs['concentration'] == _conc)).sum()
-
 cell_numbers = []
 for i,conc in enumerate(concentrations):
     cell_numbers.append([count_cells('clustering', 'Negative', conc),
@@ -526,7 +534,7 @@ dat = pd.DataFrame({'concentration': ad.obs.loc[:, 'concentration'],
 
 The different sliders represent different concentrations and the values can be modified separately for each of them.  
 - Cells with marker expression ___below___ the left value are considered ___negative___.  
-- Cells with marker expression ___above___ the left value are considered ___positive___.  
+- Cells with marker expression ___above___ the right value are considered ___positive___.  
 - Cells in an intermediate percentile are not considered.
 
 ```python
@@ -777,15 +785,15 @@ brightness = 20
 transparency = 0.3
 
 # Display images
-fig, axs = plt.subplots(2, len(concentrations), figsize=(25, 25))
+fig, axs = plt.subplots(len(concentrations), 2, figsize=(20, 10 * len(concentrations)))
 
 for i, conc in enumerate(concentrations):
     # Images
     cur_image = cv2.convertScaleAbs(image_list[i], alpha=brightness, beta=0)
     cur_image = cur_image[crop_mask[i][0]:crop_mask[i][1], crop_mask[i][2]:crop_mask[i][3]]
-    axs[0,i].imshow(cur_image, cmap=plt.cm.viridis)
-    axs[0,i].set_title("Concentration =" + str(conc))
-    axs[0,i].axis('off')
+    axs[i,0].imshow(cur_image, cmap=plt.cm.viridis)
+    axs[i,0].set_title("Concentration =" + str(conc))
+    axs[i,0].axis('off')
 
     # Image-Mask overlay
     overlay = cur_image.copy()
@@ -794,9 +802,9 @@ for i, conc in enumerate(concentrations):
     cur_mask = cur_mask[crop_mask[i][0]:crop_mask[i][1], crop_mask[i][2]:crop_mask[i][3]]
     overlay = skimage.color.label2rgb(cur_mask, overlay, alpha=transparency, bg_label=0,
                                      colors=['blue','yellow','red'])
-    axs[1,i].imshow((overlay*255).astype('uint8'))
-    axs[1,i].set_title("Concentration =" + str(conc))
-    axs[1,i].axis('off')
+    axs[i,1].imshow((overlay*255).astype('uint8'))
+    axs[i,1].set_title("Concentration =" + str(conc))
+    axs[i,1].axis('off')
     
 plt.show()
 ```
@@ -885,25 +893,43 @@ results['concentration'] = np.array(results['concentration'], dtype='double')
 results_long = results.melt(id_vars = ('marker', 'concentration'), var_name='type', value_name='meanExpr')
 ```
 
+**Calculate optimal concentration**  
+Fit polynomial curve and calculate concentration that maximize signal-to-noise ratio
+
+```python
+def polynomial_curve(x, a, b, c):
+    return a * pow(x,2) + b * pow(x,1) + c 
+
+popt, _ = curve_fit(polynomial_curve, concentrations, results['SignalToNoise'])
+
+# Alternative:
+# popt = numpy.polyfit(concentrations, results['SignalToNoise'], deg=2)
+
+p1, p2, p3 = popt
+if (p1 < 0):
+    optimal_concentration = - p2 / (2 * p1)
+    print("Optimal concentration:", round(optimal_concentration,2))
+```
+
 ### Plot the results
 
 ```python tags=[]
-figsize(7,7)
-g1 = sns.pointplot(
+fig, axs = plt.subplots(2, figsize=(7, 14))
+sns.pointplot(
     data=results_long[(results_long['type'].isin(['signal','noise'])) &
                       (results_long['marker'] == cur_marker)],
-    x='concentration', y='meanExpr', hue='type', style='type'
+    x='concentration', y='meanExpr', hue='type', style='type', ax=axs[0]
 )
-g1.set(title="Signal and noise", ylabel="Mean expression level")
+axs[0].set(title="Signal and noise", ylabel="Mean expression level")
 
 cur_results = results[results['marker'] == cur_marker]
-g2 = sns.lmplot(
-    data = cur_results,
-    x='concentration', y='SignalToNoise', col='marker',
-    order=2, ci=None, scatter_kws={"s": 100}
-)
-g2.set(title="Signal-to-noise ratio",
-       ylim=(0, 1.5 * math.ceil(max(cur_results['SignalToNoise']))))
+xlinspace = np.linspace(concentrations[0], concentrations[-1], 100)
+
+axs[1].plot(concentrations, results['SignalToNoise'], 'bo')
+axs[1].plot(xlinspace, polynomial_curve(xlinspace, *popt))
+if (p1 < 0):
+    axs[1].axvline(x=optimal_concentration, color='g', ls = '--')
+axs[1].set(title="Signal-to-noise ratio", xlabel='concentration', ylabel="Signal-to-noise ratio")
 ```
 
 <!-- #region -->
@@ -912,14 +938,23 @@ g2.set(title="Signal-to-noise ratio",
 
 ### Define relative concentration for the current marker
 
-Based on the data above, enter the ideal dilution for the current marker.  
+The optimal concentration calculated above for the curent marker is entered here.  
+***Note: it is recommended to check this value and modify it if needed***
 <!-- #endregion -->
 
 ```python
-final_concentration = 3.0
+if (p1 > 0):
+    print("No maximum found on the titration curve, please select the value manually")
+    
+else:
+    final_concentration = round(optimal_concentration, 2)
 ```
 
 ```python
+# To manually edit the dilution, change the value here
+# To keep the automatically defined dilution, comment out the line below
+final_concentration = 1000
+
 print("The chosen concentration for marker", cur_marker, "is", final_concentration)
 ```
 
@@ -932,19 +967,46 @@ __Current titration results__
 Note that the values are based on the relative concentrations or dilutions indicated in the mcd file names (or ROI description). The exported numbers ___do not___ represent absolute antibody concentrations.
 
 ```python
-titration_results = ad.var.loc[:,('name', 'channel')]
-titration_results['selected_dilution'] = None
+titration_results_csv = data_path / ('titration.csv')
+
+if Path.exists(titration_results_csv) and Path.is_file(titration_results_csv):
+    titration_results = pd.read_csv(titration_results_csv)
+
+else:
+    titration_results = pd.DataFrame(ad.var.loc[:,('channel')], ad.var.index)
+    titration_results['selected_dilution'] = None
+    
+if(titration_results.index.name != 'name'):
+    titration_results.set_index('name', inplace = True)
 titration_results.loc[cur_marker, 'selected_dilution'] = final_concentration
 titration_results
+```
+
+**Export detailed titration results**  
+`csv` file containing the signal, noise and signal-to-noise ratio for all markers adn concentrations
+
+```python
+titration_details_csv = data_path / ('titration_details.csv')
+results.set_index('marker', inplace = True)
+
+if Path.exists(titration_details_csv) and Path.is_file(titration_details_csv):
+    titration_details = pd.read_csv(titration_details_csv)
+    titration_details.set_index('marker', inplace = True)
+    titration_details = pd.concat([titration_details, results])
+    
+else:
+    titration_details = results
+titration_details
 ```
 
 ### Export the results
 
 When the process has been repeated for all the markers that need to be titered, the results can exported.  
-The results are exported as `titration.csv` to the steinbock output directory (path defined at the beginning of this script). 
+The results are exported as `titration.csv` and `titration_details.csv` to the steinbock output directory (path defined at the beginning of this script). 
 
 ```python
-titration_results.to_csv((data_path / 'titration.csv'), index=False)
+titration_results.to_csv(titration_results_csv, index=True)
+titration_details.to_csv(titration_details_csv, index=True)
 ```
 
 ```python
