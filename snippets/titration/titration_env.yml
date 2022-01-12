@@ -1,0 +1,23 @@
+name: titration_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - anndata
+  - ipython
+  - ipykernel
+  - ipympl
+  - ipywidgets
+  - jupyterlab
+  - jupytext
+  - leidenalg
+  - matplotlib
+  - napari
+  - numpy
+  - opencv
+  - pandas
+  - scipy
+  - scanpy
+  - scikit-image
+  - seaborn
+  - tifffile
