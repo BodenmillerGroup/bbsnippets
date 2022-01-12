@@ -202,7 +202,7 @@ elif Path.is_file(anndata_object):
     ad.obs['image_id'] = ad.obs['image'].str.replace(img_extension, '', regex=True)
     ad.obs['object_id'] = ad.obs_names
     ad.obs['object_id'] = ad.obs['object_id'].str.split(
-        r'(?P<Object>[A-Za-z]{6}) (?P<object_id>[0-9]{1,4})', expand=True)[2]
+        r'(?P<Object>[A-Za-z]+) (?P<object_id>[0-9]+)', expand=True)[2]
     
     imgName_values = ad.obs['image_id'].str.split(mcdName_separator, expand=True)
     
@@ -525,7 +525,7 @@ dat = pd.DataFrame({'concentration': ad.obs.loc[:, 'concentration'],
 #
 # The different sliders represent different concentrations and the values can be modified separately for each of them.  
 # - Cells with marker expression ___below___ the left value are considered ___negative___.  
-# - Cells with marker expression ___above___ the left value are considered ___positive___.  
+# - Cells with marker expression ___above___ the right value are considered ___positive___.  
 # - Cells in an intermediate percentile are not considered.
 
 # %%
@@ -776,7 +776,7 @@ brightness = 20
 transparency = 0.3
 
 # Display images
-fig, axs = plt.subplots(len(concentrations), 2, figsize=(50, 50))
+fig, axs = plt.subplots(len(concentrations), 2, figsize=(20, 10 * len(concentrations)))
 
 for i, conc in enumerate(concentrations):
     # Images
@@ -897,7 +897,7 @@ popt, _ = curve_fit(polynomial_curve, concentrations, results['SignalToNoise'])
 # popt = numpy.polyfit(concentrations, results['SignalToNoise'], deg=2)
 
 p1, p2, p3 = popt
-if (p1 <= 0):
+if (p1 < 0):
     optimal_concentration = - p2 / (2 * p1)
     print("Optimal concentration:", round(optimal_concentration,2))
 
@@ -918,7 +918,7 @@ xlinspace = np.linspace(concentrations[0], concentrations[-1], 100)
 
 axs[1].plot(concentrations, results['SignalToNoise'], 'bo')
 axs[1].plot(xlinspace, polynomial_curve(xlinspace, *popt))
-if (p1 <= 0):
+if (p1 < 0):
     axs[1].axvline(x=optimal_concentration, color='g', ls = '--')
 axs[1].set(title="Signal-to-noise ratio", xlabel='concentration', ylabel="Signal-to-noise ratio")
 
@@ -932,12 +932,17 @@ axs[1].set(title="Signal-to-noise ratio", xlabel='concentration', ylabel="Signal
 # ***Note: it is recommended to check this value and modify it if needed***
 
 # %%
-if (p1 >= 0):
+if (p1 > 0):
     print("No maximum found on the titration curve, please select the value manually")
-    final_concentration = 1000
-else:
-    final_concentration =  round(optimal_concentration, 2)
     
+else:
+    final_concentration = round(optimal_concentration, 2)
+
+# %%
+# To manually edit the dilution, change the value here
+# To keep the automatically defined dilution, comment out the line below
+final_concentration = 1000
+
 print("The chosen concentration for marker", cur_marker, "is", final_concentration)
 
 # %% [markdown]
@@ -959,7 +964,8 @@ else:
     titration_results = pd.DataFrame(ad.var.loc[:,('channel')], ad.var.index)
     titration_results['selected_dilution'] = None
     
-titration_results.set_index('name', inplace = True)
+if(titration_results.index.name != 'name'):
+    titration_results.set_index('name', inplace = True)
 titration_results.loc[cur_marker, 'selected_dilution'] = final_concentration
 titration_results
 
